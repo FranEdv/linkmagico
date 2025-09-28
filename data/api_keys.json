@@ -1,0 +1,27 @@
+{
+  "apiKeys": [
+    [
+      "lm_238f5ecc_4c5e7a9d34cf8b824a6b90433f84840b",
+      {
+        "key": "lm_238f5ecc_4c5e7a9d34cf8b824a6b90433f84840b",
+        "client": "Cliente Principal",
+        "plan": "pro",
+        "created": "2025-09-28T05:19:57.470Z",
+        "active": true,
+        "limits": {
+          "dailyRequests": 500,
+          "monthlyRequests": 10000,
+          "chatbotsPerDay": 25,
+          "extractionsPerDay": 100
+        },
+        "usage": {
+          "requests": 0,
+          "chatbots": 0,
+          "extractions": 0,
+          "lastUsed": null
+        }
+      }
+    ]
+  ],
+  "saved": "2025-09-28T05:19:57.471Z"
+}
