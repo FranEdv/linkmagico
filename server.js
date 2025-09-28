@@ -1,4 +1,4 @@
-// server.js - LinkMágico v6.0 Server com Autenticação
+// server.js - LinkMágico v6.0 Server Integrado (Autenticação + LGPD)
 require('dotenv').config();
 
 const crypto = require('crypto');
@@ -71,12 +71,39 @@ app.use(bodyParser.json({ limit: '10mb' }));
 
 app.use(morgan('combined'));
 
-// ===== APLICAR AUTENTICAÇÃO =====
-// Middleware de autenticação para todas as rotas (exceto públicas)
-app.use(authMiddleware);
-
-// Middleware específico para páginas HTML protegidas
-app.use(htmlAuthMiddleware);
+// ===== APLICAR AUTENTICAÇÃO CONDICIONAL =====
+// Middleware de autenticação condicional (apenas para endpoints protegidos)
+app.use((req, res, next) => {
+    // Rotas públicas que não precisam de autenticação
+    const publicRoutes = [
+        '/',
+        '/health',
+        '/privacy.html',
+        '/privacy-policy',
+        '/excluir-dados',
+        '/delete-data',
+        '/data-deletion',
+        '/api/log-consent',
+        '/api/data-deletion',
+        '/widget.js'
+    ];
+    
+    // Se é rota pública, passa direto
+    if (publicRoutes.includes(req.path)) {
+        return next();
+    }
+    
+    // Para outras rotas, aplica autenticação apenas se tiver API key no header ou query
+    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.key;
+    
+    if (apiKey) {
+        // Se tem API key, aplica autenticação
+        return authMiddleware(req, res, next);
+    }
+    
+    // Se não tem API key, permite acesso (modo gratuito)
+    next();
+});
 
 // Serve static files from public directory
 app.use(express.static('public', {
@@ -96,7 +123,6 @@ const analytics = {
     responseTimeHistory: [],
     successfulExtractions: 0,
     failedExtractions: 0,
-    // Novas métricas para licenciamento
     authenticatedRequests: 0,
     uniqueClients: new Set()
 };
@@ -580,7 +606,6 @@ function generateLocalResponse(userMessage, pageData = {}, instructions = '') {
     return NOT_FOUND_MSG;
 }
 
-
 // ===== ROTAS ADMINISTRATIVAS - Geração/Listagem de API Keys =====
 // ROTA ADMINISTRATIVA - Gerar API Key via URL
 app.get('/admin/generate-key/:masterPassword', (req, res) => {
@@ -644,7 +669,6 @@ app.get('/admin/list-keys/:masterPassword', (req, res) => {
 });
 // ===== FIM DAS ROTAS ADMINISTRATIVAS =====
 
-
 // ===== API Routes =====
 
 // Rota de validação de API key
@@ -670,7 +694,6 @@ app.get('/health', (req, res) => {
             successfulExtractions: analytics.successfulExtractions,
             failedExtractions: analytics.failedExtractions,
             cacheSize: dataCache.size,
-            // Novas métricas
             authenticatedRequests: analytics.authenticatedRequests,
             uniqueClients: analytics.uniqueClients.size
         },
@@ -681,7 +704,7 @@ app.get('/health', (req, res) => {
         },
         authentication: {
             enabled: true,
-            type: 'api_key'
+            type: 'conditional_api_key'
         }
     });
 });
@@ -696,9 +719,10 @@ app.get('/chat.html', (req, res) => {
     const robotName = req.query.name || 'Assistente IA';
     const url = req.query.url || '';
     const instructions = req.query.instructions || '';
+    const apiKey = req.query.api_key || req.query.key || '';
     
     // Redireciona para a rota do chatbot
-    res.redirect(`/chatbot?name=${encodeURIComponent(robotName)}&url=${encodeURIComponent(url)}&instructions=${encodeURIComponent(instructions)}&api_key=${req.query.api_key || req.query.key || ''}`);
+    res.redirect(`/chatbot?name=${encodeURIComponent(robotName)}&url=${encodeURIComponent(url)}&instructions=${encodeURIComponent(instructions)}&api_key=${encodeURIComponent(apiKey)}`);
 });
 
 // /extract endpoint CORRIGIDO
@@ -707,7 +731,8 @@ app.post('/extract', async (req, res) => {
     try {
         const { url, instructions, robotName } = req.body || {};
         
-        console.log(`🔥 Requisição de extração autorizada para: ${req.cliente?.nome || 'Cliente'} - URL: ${url}`);
+        const clientInfo = req.cliente ? ` - Cliente: ${req.cliente.nome}` : ' - Modo Gratuito';
+        console.log(`🔥 Requisição de extração autorizada${clientInfo} - URL: ${url}`);
         
         if (!url) {
             return res.status(400).json({ 
@@ -726,7 +751,7 @@ app.post('/extract', async (req, res) => {
             }); 
         }
 
-        logger.info(`Starting extraction for URL: ${url} - Cliente: ${req.cliente?.nome}`);
+        logger.info(`Starting extraction for URL: ${url}${clientInfo}`);
         
         const extractedData = await extractPageData(url);
         
@@ -738,7 +763,7 @@ app.post('/extract', async (req, res) => {
         return res.json({ 
             success: true, 
             data: extractedData,
-            client: req.cliente?.nome
+            client: req.cliente?.nome || 'free_tier'
         });
 
     } catch (error) {
@@ -791,7 +816,7 @@ app.post('/chat-universal', async (req, res) => {
                 hasPageData: !!processedPageData,
                 contentLength: processedPageData?.cleanText?.length || 0,
                 method: processedPageData?.method || 'none',
-                client: req.cliente?.nome
+                client: req.cliente?.nome || 'free_tier'
             }
         });
 
@@ -805,12 +830,12 @@ app.post('/chat-universal', async (req, res) => {
     }
 });
 
-// Widget JS com autenticação
+// Widget JS com autenticação condicional
 app.get('/widget.js', (req, res) => {
-    const apiKey = req.query.key || req.query.api_key || 'INVALID';
+    const apiKey = req.query.key || req.query.api_key || '';
     
     res.set('Content-Type', 'application/javascript');
-    res.send(`// LinkMágico Widget v6.0 - Autenticado
+    res.send(`// LinkMágico Widget v6.0 - Híbrido (Gratuito + Comercial)
 (function() {
     'use strict';
     if (window.LinkMagicoWidget) return;
@@ -823,40 +848,34 @@ app.get('/widget.js', (req, res) => {
             salesUrl: '',
             instructions: '',
             apiBase: window.location.origin,
-            apiKey: '${apiKey}' // API Key incorporada
+            apiKey: '${apiKey}' // API Key opcional
         },
         
         init: function(userConfig) {
             this.config = Object.assign(this.config, userConfig || {});
             
-            // Validar API key antes de inicializar
-            this.validateKey().then((valid) => {
-                if (!valid) {
-                    console.error('LinkMágico Widget: API Key inválida');
-                    this.showKeyError();
-                    return;
-                }
-                
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', this.createWidget.bind(this));
-                } else {
+            // Se tem API key, valida antes de inicializar
+            if (this.config.apiKey && this.config.apiKey.startsWith('lm_')) {
+                this.validateKey().then((valid) => {
+                    if (!valid) {
+                        console.warn('LinkMágico Widget: API Key inválida - usando modo gratuito');
+                        this.config.apiKey = '';
+                    }
                     this.createWidget();
-                }
-            });
+                });
+            } else {
+                // Modo gratuito
+                this.config.apiKey = '';
+                this.createWidget();
+            }
         },
         
         validateKey: function() {
-            return fetch(this.config.apiBase + '/api/validate-key', {
+            if (!this.config.apiKey) return Promise.resolve(false);
+            
+            return fetch(this.config.apiBase + '/health', {
                 headers: { 'X-API-Key': this.config.apiKey }
             }).then(r => r.ok).catch(() => false);
-        },
-        
-        showKeyError: function() {
-            var errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px;border-radius:8px;z-index:999999;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
-            errorDiv.innerHTML = '🔒 LinkMágico: API Key inválida<br><small>Contate o suporte</small>';
-            document.body.appendChild(errorDiv);
-            setTimeout(() => errorDiv.remove(), 5000);
         },
         
         createWidget: function() {
@@ -869,11 +888,14 @@ app.get('/widget.js', (req, res) => {
         },
         
         getHTML: function() {
+            var mode = this.config.apiKey ? 'PRO' : 'FREE';
+            var headerText = this.config.robotName + (this.config.apiKey ? ' 🔑' : ' 🆓');
+            
             return '<div class="lm-button" id="lm-button"><i class="fas fa-comments"></i></div>' +
                    '<div class="lm-chat" id="lm-chat" style="display:none;">' +
-                   '<div class="lm-header"><span>' + this.config.robotName + '</span><button id="lm-close">×</button></div>' +
+                   '<div class="lm-header"><span>' + headerText + '</span><button id="lm-close">×</button></div>' +
                    '<div class="lm-messages" id="lm-messages">' +
-                   '<div class="lm-msg lm-bot">Olá! Como posso ajudar?</div></div>' +
+                   '<div class="lm-msg lm-bot">Olá! Como posso ajudar? (' + mode + ' Mode)</div></div>' +
                    '<div class="lm-input"><input id="lm-input" placeholder="Digite..."><button id="lm-send">➤</button></div></div>';
         },
         
@@ -922,12 +944,14 @@ app.get('/widget.js', (req, res) => {
             if (input) input.value = '';
             var self = this;
             
+            var headers = {'Content-Type': 'application/json'};
+            if (this.config.apiKey) {
+                headers['X-API-Key'] = this.config.apiKey;
+            }
+            
             fetch(this.config.apiBase + '/chat-universal', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': this.config.apiKey
-                },
+                headers: headers,
                 body: JSON.stringify({
                     message: msg,
                     robotName: this.config.robotName,
@@ -1318,6 +1342,7 @@ function generateChatbotHTML(pageData = {}, robotName = 'Assistente IA', customI
     const safeRobotName = String(robotName || 'Assistente IA').replace(/"/g, '\\"');
     const safeInstructions = String(customInstructions || '').replace(/"/g, '\\"');
     const safeApiKey = String(apiKey || '').replace(/"/g, '\\"');
+    const isCommercial = apiKey && apiKey.startsWith('lm_');
 
     return `<!doctype html>
 <html lang="pt-BR">
@@ -1335,6 +1360,7 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%
 .chat-header{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;padding:20px;text-align:center;position:relative}
 .chat-header h1{font-size:1.5rem;font-weight:600}
 .chat-header .subtitle{font-size:0.9rem;opacity:0.9;margin-top:5px}
+.auth-badge{position:absolute;top:10px;right:10px;background:${isCommercial ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'};color:rgba(255,255,255,0.9);padding:5px 10px;border-radius:15px;font-size:0.7rem;border:1px solid ${isCommercial ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}}
 .chat-messages{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;background:#f8fafc}
 .chat-message{max-width:70%;padding:15px;border-radius:15px;font-size:0.95rem;line-height:1.4}
 .chat-message.user{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;align-self:flex-end;border-bottom-right-radius:5px}
@@ -1351,13 +1377,12 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%
 .typing-dot:nth-child(3){animation-delay:0.4s}
 @keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
 @media (max-width:768px){.chat-container{height:100vh;border-radius:0}.chat-message{max-width:85%}}
-.auth-badge{position:absolute;top:10px;right:10px;background:rgba(16,185,129,0.2);color:rgba(255,255,255,0.9);padding:5px 10px;border-radius:15px;font-size:0.7rem;border:1px solid rgba(16,185,129,0.3)}
 </style>
 </head>
 <body>
 <div class="chat-container">
 <div class="chat-header">
-<div class="auth-badge">🔒 Licenciado</div>
+<div class="auth-badge">${isCommercial ? '🔑 Pro' : '🆓 Free'}</div>
 <h1>${safeRobotName}</h1>
 <div class="subtitle">IA Assistente - LinkMágico v6.0</div>
 </div>
@@ -1404,12 +1429,14 @@ sendButton.disabled = true;
 typingIndicator.style.display = 'flex';
 
 try {
+const headers = { 'Content-Type': 'application/json' };
+if (apiKey && apiKey.startsWith('lm_')) {
+    headers['X-API-Key'] = apiKey;
+}
+
 const response = await fetch('/chat-universal', {
 method: 'POST',
-headers: { 
-    'Content-Type': 'application/json',
-    'X-API-Key': apiKey
-},
+headers: headers,
 body: JSON.stringify({
 message: message,
 pageData: pageData,
@@ -1455,11 +1482,11 @@ app.get('*', (req, res) => {
 // ===== Server startup =====
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, '0.0.0.0', () => {
-    logger.info(`🚀 LinkMágico Server v6.0 rodando na porta ${PORT}`);
-    logger.info(`🔒 Sistema de autenticação ativado`);
+    logger.info(`🚀 LinkMágico Server v6.0 Integrado rodando na porta ${PORT}`);
+    logger.info(`🔓 Sistema híbrido: Gratuito + Comercial (autenticação condicional)`);
     logger.info(`📊 Health check disponível em: http://localhost:${PORT}/health`);
     logger.info(`🤖 Chatbot disponível em: http://localhost:${PORT}/chatbot`);
-    logger.info(`📧 Widget JS disponível em: http://localhost:${PORT}/widget.js`);
+    logger.info(`🔧 Widget JS disponível em: http://localhost:${PORT}/widget.js`);
     logger.info(`📄 Política de Privacidade disponível em: http://localhost:${PORT}/privacy.html`);
     logger.info(`🗑️ Exclusão de Dados disponível em: http://localhost:${PORT}/excluir-dados`);
 });
