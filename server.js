@@ -580,6 +580,72 @@ function generateLocalResponse(userMessage, pageData = {}, instructions = '') {
     return NOT_FOUND_MSG;
 }
 
+
+// ===== ROTAS ADMINISTRATIVAS - Geração/Listagem de API Keys =====
+const crypto = require('crypto');
+// ROTA ADMINISTRATIVA - Gerar API Key via URL
+app.get('/admin/generate-key/:masterPassword', (req, res) => {
+    const masterPassword = req.params.masterPassword;
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'minha_senha_secreta_123';
+    if (masterPassword !== MASTER_PASSWORD) return res.status(403).send('Acesso negado');
+    try {
+        const keyId = crypto.randomUUID();
+        const keySecret = crypto.randomBytes(32).toString('hex');
+        const apiKey = `lm_${keyId.split('-')[0]}_${keySecret.substring(0, 32)}`;
+        const keyData = {
+            key: apiKey,
+            client: req.query.client || 'Cliente Web',
+            plan: req.query.plan || 'pro',
+            created: new Date().toISOString(),
+            active: true,
+            limits: { dailyRequests: 500, monthlyRequests: 10000 },
+            usage: { requests: 0, chatbots: 0, extractions: 0 }
+        };
+        const dataDir = path.join(__dirname, 'data');
+        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+        const dataFile = path.join(dataDir, 'api_keys.json');
+        let apiKeysData = { apiKeys: [], saved: new Date().toISOString() };
+        if (fs.existsSync(dataFile)) {
+            try { apiKeysData = JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch { apiKeysData = { apiKeys: [], saved: new Date().toISOString() }; }
+        }
+        apiKeysData.apiKeys.push([apiKey, keyData]);
+        apiKeysData.saved = new Date().toISOString();
+        fs.writeFileSync(dataFile, JSON.stringify(apiKeysData, null, 2));
+        const usageFile = path.join(dataDir, 'usage.json');
+        let usageData = { usage: [], saved: new Date().toISOString() };
+        if (fs.existsSync(usageFile)) {
+            try { usageData = JSON.parse(fs.readFileSync(usageFile, 'utf8')); } catch { usageData = { usage: [], saved: new Date().toISOString() }; }
+        }
+        const getCurrentMonth = () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        };
+        usageData.usage.push([apiKey, { daily: { date: new Date().toDateString(), requests: 0 }, monthly: { month: getCurrentMonth(), requests: 0 } }]);
+        usageData.saved = new Date().toISOString();
+        fs.writeFileSync(usageFile, JSON.stringify(usageData, null, 2));
+        res.send(`<html><body><h1>API Key Gerada</h1><p>${apiKey}</p></body></html>`);
+    } catch (error) { res.status(500).send('Erro: ' + error.message); }
+});
+
+// ROTA ADMINISTRATIVA - Listar API Keys
+app.get('/admin/list-keys/:masterPassword', (req, res) => {
+    const masterPassword = req.params.masterPassword;
+    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'minha_senha_secreta_123';
+    if (masterPassword !== MASTER_PASSWORD) return res.status(403).send('Acesso negado');
+    try {
+        const dataFile = path.join(__dirname, 'data', 'api_keys.json');
+        if (!fs.existsSync(dataFile)) return res.send('<h1>Nenhuma API Key encontrada</h1>');
+        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+        const keys = data.apiKeys || [];
+        let html = '<html><body><h1>API Keys</h1><table border="1"><tr><th>Cliente</th><th>Plano</th><th>API Key</th></tr>';
+        keys.forEach(([key, info]) => { html += `<tr><td>${info.client}</td><td>${info.plan}</td><td>${key}</td></tr>`; });
+        html += '</table></body></html>';
+        res.send(html);
+    } catch (error) { res.status(500).send('Erro: ' + error.message); }
+});
+// ===== FIM DAS ROTAS ADMINISTRATIVAS =====
+
+
 // ===== API Routes =====
 
 // Rota de validação de API key
