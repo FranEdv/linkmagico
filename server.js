@@ -582,7 +582,6 @@ function generateLocalResponse(userMessage, pageData = {}, instructions = '') {
 
 
 // ===== ROTAS ADMINISTRATIVAS - Geração/Listagem de API Keys =====
-const crypto = require('crypto');
 // ROTA ADMINISTRATIVA - Gerar API Key via URL
 app.get('/admin/generate-key/:masterPassword', (req, res) => {
     const masterPassword = req.params.masterPassword;
