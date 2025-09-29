@@ -1463,7 +1463,7 @@ ${apiKey ? '<div class="auth-badge">Autenticado</div>' : ''}
 
     function addMessage(text, sender) {
         const messageElement = document.createElement('div');
-        messageElement.className = `chat-message ${sender}`;
+                        messageElement.className = 'chat-message ' + sender;
         messageElement.textContent = text;
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
