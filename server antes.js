@@ -1,5 +1,4 @@
-
-// server.js - LinkMágico v6.0 Final (API Key → LGPD → Ferramenta)
+// server.js - LinkMágico v6.0 Server com Autenticação
 require('dotenv').config();
 
 const crypto = require('crypto');
@@ -13,6 +12,13 @@ const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
+
+// Importa middleware de autenticação
+const { 
+    authMiddleware, 
+    htmlAuthMiddleware, 
+    createValidationRoute 
+} = require('./auth');
 
 // Optional dependencies with graceful fallback
 let puppeteer = null;
@@ -62,135 +68,17 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(bodyParser.json({ limit: '10mb' }));
+
 app.use(morgan('combined'));
 
-// ===== API KEYS MANAGEMENT =====
-function loadApiKeys() {
-    try {
-        const dataFile = path.join(__dirname, 'data', 'api_keys.json');
-        if (!fs.existsSync(dataFile)) {
-            const dataDir = path.join(__dirname, 'data');
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            
-            const initialData = {
-                apiKeys: [],
-                saved: new Date().toISOString()
-            };
-            fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
-            return new Map();
-        }
-        
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        const keyMap = new Map();
-        
-        if (data.apiKeys && Array.isArray(data.apiKeys)) {
-            data.apiKeys.forEach(([key, info]) => {
-                if (key && info && info.active) {
-                    keyMap.set(key, info);
-                }
-            });
-        }
-        
-        console.log(`📊 Carregadas ${keyMap.size} API keys ativas`);
-        return keyMap;
-    } catch (error) {
-        console.error('❌ Erro ao carregar API keys:', error);
-        return new Map();
-    }
-}
-
-let apiKeysCache = loadApiKeys();
-let lastCacheUpdate = Date.now();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-
-function refreshApiKeysCache() {
-    const now = Date.now();
-    if (now - lastCacheUpdate > CACHE_TTL) {
-        apiKeysCache = loadApiKeys();
-        lastCacheUpdate = now;
-    }
-}
-
-function validateApiKey(apiKey) {
-    if (!apiKey || typeof apiKey !== 'string') {
-        return { valid: false, reason: 'API key inválida' };
-    }
-    
-    if (!apiKey.startsWith('lm_')) {
-        return { valid: false, reason: 'Formato de API key inválido' };
-    }
-    
-    refreshApiKeysCache();
-    
-    const keyInfo = apiKeysCache.get(apiKey);
-    if (!keyInfo) {
-        return { valid: false, reason: 'API key não encontrada' };
-    }
-    
-    if (!keyInfo.active) {
-        return { valid: false, reason: 'API key desativada' };
-    }
-    
-    return { 
-        valid: true, 
-        client: {
-            nome: keyInfo.client || 'Cliente',
-            plano: keyInfo.plan || 'pro',
-            created: keyInfo.created,
-            limits: keyInfo.limits
-        }
-    };
-}
-
-// ===== AUTHENTICATION MIDDLEWARE =====
-function authMiddleware(req, res, next) {
-    // Rotas públicas (LGPD, health)
-    const publicRoutes = [
-        '/privacy.html',
-        '/privacy-policy',
-        '/excluir-dados',
-        '/delete-data',
-        '/data-deletion',
-        '/api/log-consent',
-        '/api/data-deletion'
-    ];
-    
-    if (publicRoutes.includes(req.path)) {
-        return next();
-    }
-    
-    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.key;
-    
-    if (!apiKey) {
-        return res.status(401).json({ 
-            error: 'API key obrigatória',
-            hint: 'Acesse através da interface principal'
-        });
-    }
-    
-    const validation = validateApiKey(apiKey);
-    
-    if (!validation.valid) {
-        console.log(`🔒 API key rejeitada: ${validation.reason}`);
-        return res.status(401).json({ 
-            error: 'API key inválida',
-            reason: validation.reason
-        });
-    }
-    
-    req.cliente = validation.client;
-    req.apiKey = apiKey;
-    
-    console.log(`✅ Cliente autenticado: ${validation.client.nome}`);
-    next();
-}
-
-// Apply auth middleware to all routes except public ones
+// ===== APLICAR AUTENTICAÇÃO =====
+// Middleware de autenticação para todas as rotas (exceto públicas)
 app.use(authMiddleware);
 
-// Serve static files
+// Middleware específico para páginas HTML protegidas
+app.use(htmlAuthMiddleware);
+
+// Serve static files from public directory
 app.use(express.static('public', {
     maxAge: '1d',
     etag: true,
@@ -208,6 +96,7 @@ const analytics = {
     responseTimeHistory: [],
     successfulExtractions: 0,
     failedExtractions: 0,
+    // Novas métricas para licenciamento
     authenticatedRequests: 0,
     uniqueClients: new Set()
 };
@@ -216,6 +105,7 @@ app.use((req, res, next) => {
     const start = Date.now();
     analytics.totalRequests++;
 
+    // Rastreia clientes autenticados
     if (req.cliente) {
         analytics.authenticatedRequests++;
         analytics.uniqueClients.add(req.cliente.nome);
@@ -232,7 +122,7 @@ app.use((req, res, next) => {
 });
 
 const dataCache = new Map();
-const CACHE_TTL_DATA = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 function setCacheData(key, data) {
     dataCache.set(key, { data, timestamp: Date.now() });
@@ -240,7 +130,7 @@ function setCacheData(key, data) {
 
 function getCacheData(key) {
     const cached = dataCache.get(key);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_DATA) {
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
         return cached.data;
     }
     dataCache.delete(key);
@@ -690,88 +580,10 @@ function generateLocalResponse(userMessage, pageData = {}, instructions = '') {
     return NOT_FOUND_MSG;
 }
 
-// ===== ROTAS ADMINISTRATIVAS =====
-// ROTA ADMINISTRATIVA - Gerar API Key via URL
-app.get('/admin/generate-key/:masterPassword', (req, res) => {
-    const masterPassword = req.params.masterPassword;
-    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'minha_senha_secreta_123';
-    if (masterPassword !== MASTER_PASSWORD) return res.status(403).send('Acesso negado');
-    try {
-        const keyId = crypto.randomUUID();
-        const keySecret = crypto.randomBytes(32).toString('hex');
-        const apiKey = `lm_${keyId.split('-')[0]}_${keySecret.substring(0, 32)}`;
-        const keyData = {
-            key: apiKey,
-            client: req.query.client || 'Cliente Web',
-            plan: req.query.plan || 'pro',
-            created: new Date().toISOString(),
-            active: true,
-            limits: { dailyRequests: 500, monthlyRequests: 10000 },
-            usage: { requests: 0, chatbots: 0, extractions: 0 }
-        };
-        const dataDir = path.join(__dirname, 'data');
-        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        const dataFile = path.join(dataDir, 'api_keys.json');
-        let apiKeysData = { apiKeys: [], saved: new Date().toISOString() };
-        if (fs.existsSync(dataFile)) {
-            try { apiKeysData = JSON.parse(fs.readFileSync(dataFile, 'utf8')); } catch { apiKeysData = { apiKeys: [], saved: new Date().toISOString() }; }
-        }
-        apiKeysData.apiKeys.push([apiKey, keyData]);
-        apiKeysData.saved = new Date().toISOString();
-        fs.writeFileSync(dataFile, JSON.stringify(apiKeysData, null, 2));
-        res.send(`<html><body><h1>API Key Gerada</h1><p><strong>${apiKey}</strong></p><small>Guarde esta chave em local seguro</small></body></html>`);
-    } catch (error) { res.status(500).send('Erro: ' + error.message); }
-});
-
-// ROTA ADMINISTRATIVA - Listar API Keys
-app.get('/admin/list-keys/:masterPassword', (req, res) => {
-    const masterPassword = req.params.masterPassword;
-    const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'minha_senha_secreta_123';
-    if (masterPassword !== MASTER_PASSWORD) return res.status(403).send('Acesso negado');
-    try {
-        const dataFile = path.join(__dirname, 'data', 'api_keys.json');
-        if (!fs.existsSync(dataFile)) return res.send('<h1>Nenhuma API Key encontrada</h1>');
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        const keys = data.apiKeys || [];
-        let html = '<html><body><h1>API Keys</h1><table border="1"><tr><th>Cliente</th><th>Plano</th><th>API Key</th><th>Status</th></tr>';
-        keys.forEach(([key, info]) => { 
-            const status = info.active ? 'Ativa' : 'Inativa';
-            html += `<tr><td>${info.client}</td><td>${info.plan}</td><td>${key}</td><td>${status}</td></tr>`; 
-        });
-        html += '</table></body></html>';
-        res.send(html);
-    } catch (error) { res.status(500).send('Erro: ' + error.message); }
-});
-
-// ===== API ROUTES =====
+// ===== API Routes =====
 
 // Rota de validação de API key
-app.post('/api/validate-key', (req, res) => {
-    const apiKey = req.headers['x-api-key'] || req.body.apiKey;
-    
-    if (!apiKey) {
-        return res.status(400).json({
-            valid: false,
-            error: 'API key não fornecida'
-        });
-    }
-    
-    const validation = validateApiKey(apiKey);
-    
-    if (!validation.valid) {
-        return res.status(401).json({
-            valid: false,
-            error: validation.reason
-        });
-    }
-    
-    res.json({
-        valid: true,
-        client: validation.client.nome,
-        plan: validation.client.plano,
-        created: validation.client.created
-    });
-});
+createValidationRoute(app);
 
 app.get('/health', (req, res) => {
     const uptime = process.uptime();
@@ -793,6 +605,7 @@ app.get('/health', (req, res) => {
             successfulExtractions: analytics.successfulExtractions,
             failedExtractions: analytics.failedExtractions,
             cacheSize: dataCache.size,
+            // Novas métricas
             authenticatedRequests: analytics.authenticatedRequests,
             uniqueClients: analytics.uniqueClients.size
         },
@@ -803,7 +616,7 @@ app.get('/health', (req, res) => {
         },
         authentication: {
             enabled: true,
-            type: 'required_api_key'
+            type: 'api_key'
         }
     });
 });
@@ -818,20 +631,18 @@ app.get('/chat.html', (req, res) => {
     const robotName = req.query.name || 'Assistente IA';
     const url = req.query.url || '';
     const instructions = req.query.instructions || '';
-    const apiKey = req.query.api_key || req.query.key || '';
     
     // Redireciona para a rota do chatbot
-    res.redirect(`/chatbot?name=${encodeURIComponent(robotName)}&url=${encodeURIComponent(url)}&instructions=${encodeURIComponent(instructions)}&api_key=${encodeURIComponent(apiKey)}`);
+    res.redirect(`/chatbot?name=${encodeURIComponent(robotName)}&url=${encodeURIComponent(url)}&instructions=${encodeURIComponent(instructions)}&api_key=${req.query.api_key || req.query.key || ''}`);
 });
 
-// /extract endpoint
+// /extract endpoint CORRIGIDO
 app.post('/extract', async (req, res) => {
     analytics.extractRequests++;
     try {
         const { url, instructions, robotName } = req.body || {};
         
-        const clientInfo = req.cliente ? ` - Cliente: ${req.cliente.nome}` : '';
-        console.log(`🔥 Requisição de extração autorizada${clientInfo} - URL: ${url}`);
+        console.log(`🔥 Requisição de extração autorizada para: ${req.cliente?.nome || 'Cliente'} - URL: ${url}`);
         
         if (!url) {
             return res.status(400).json({ 
@@ -850,7 +661,7 @@ app.post('/extract', async (req, res) => {
             }); 
         }
 
-        logger.info(`Starting extraction for URL: ${url}${clientInfo}`);
+        logger.info(`Starting extraction for URL: ${url} - Cliente: ${req.cliente?.nome}`);
         
         const extractedData = await extractPageData(url);
         
@@ -862,7 +673,7 @@ app.post('/extract', async (req, res) => {
         return res.json({ 
             success: true, 
             data: extractedData,
-            client: req.cliente?.nome || 'authenticated'
+            client: req.cliente?.nome
         });
 
     } catch (error) {
@@ -877,7 +688,7 @@ app.post('/extract', async (req, res) => {
     }
 });
 
-// /chat-universal endpoint
+// /chat-universal endpoint CORRIGIDO
 app.post('/chat-universal', async (req, res) => {
     analytics.chatRequests++;
     try {
@@ -915,7 +726,7 @@ app.post('/chat-universal', async (req, res) => {
                 hasPageData: !!processedPageData,
                 contentLength: processedPageData?.cleanText?.length || 0,
                 method: processedPageData?.method || 'none',
-                client: req.cliente?.nome || 'authenticated'
+                client: req.cliente?.nome
             }
         });
 
@@ -929,18 +740,9 @@ app.post('/chat-universal', async (req, res) => {
     }
 });
 
-// Widget JS com autenticação obrigatória
+// Widget JS com autenticação
 app.get('/widget.js', (req, res) => {
-    const apiKey = req.query.key || req.query.api_key || '';
-    
-    if (!apiKey) {
-        return res.status(401).send('// LinkMágico Widget: API Key obrigatória\nconsole.error("LinkMágico Widget: API Key não fornecida");');
-    }
-    
-    const validation = validateApiKey(apiKey);
-    if (!validation.valid) {
-        return res.status(401).send(`// LinkMágico Widget: ${validation.reason}\nconsole.error("LinkMágico Widget: ${validation.reason}");`);
-    }
+    const apiKey = req.query.key || req.query.api_key || 'INVALID';
     
     res.set('Content-Type', 'application/javascript');
     res.send(`// LinkMágico Widget v6.0 - Autenticado
@@ -956,12 +758,40 @@ app.get('/widget.js', (req, res) => {
             salesUrl: '',
             instructions: '',
             apiBase: window.location.origin,
-            apiKey: '${apiKey}' // API Key validada
+            apiKey: '${apiKey}' // API Key incorporada
         },
         
         init: function(userConfig) {
             this.config = Object.assign(this.config, userConfig || {});
-            this.createWidget();
+            
+            // Validar API key antes de inicializar
+            this.validateKey().then((valid) => {
+                if (!valid) {
+                    console.error('LinkMágico Widget: API Key inválida');
+                    this.showKeyError();
+                    return;
+                }
+                
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', this.createWidget.bind(this));
+                } else {
+                    this.createWidget();
+                }
+            });
+        },
+        
+        validateKey: function() {
+            return fetch(this.config.apiBase + '/api/validate-key', {
+                headers: { 'X-API-Key': this.config.apiKey }
+            }).then(r => r.ok).catch(() => false);
+        },
+        
+        showKeyError: function() {
+            var errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:15px;border-radius:8px;z-index:999999;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+            errorDiv.innerHTML = '🔒 LinkMágico: API Key inválida<br><small>Contate o suporte</small>';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
         },
         
         createWidget: function() {
@@ -976,7 +806,7 @@ app.get('/widget.js', (req, res) => {
         getHTML: function() {
             return '<div class="lm-button" id="lm-button"><i class="fas fa-comments"></i></div>' +
                    '<div class="lm-chat" id="lm-chat" style="display:none;">' +
-                   '<div class="lm-header"><span>' + this.config.robotName + ' 🔑</span><button id="lm-close">×</button></div>' +
+                   '<div class="lm-header"><span>' + this.config.robotName + '</span><button id="lm-close">×</button></div>' +
                    '<div class="lm-messages" id="lm-messages">' +
                    '<div class="lm-msg lm-bot">Olá! Como posso ajudar?</div></div>' +
                    '<div class="lm-input"><input id="lm-input" placeholder="Digite..."><button id="lm-send">➤</button></div></div>';
@@ -1091,7 +921,7 @@ app.get('/chatbot', async (req, res) => {
     }
 });
 
-// ===== ROTAS LGPD =====
+// ===== ROTAS LGPD CORRIGIDAS - CONTEÚDO DINÂMICO =====
 
 // Política de Privacidade - Conteúdo dinâmico
 app.get('/privacy.html', (req, res) => {
@@ -1120,60 +950,87 @@ app.get('/data-deletion', (req, res) => {
     res.redirect('/excluir-dados');
 });
 
-// API para log de consentimento
+// APIs de Compliance
 app.post('/api/log-consent', (req, res) => {
     try {
-        const { apiKey, url, consent } = req.body;
-        if (!apiKey || !url || consent === undefined) {
-            return res.status(400).json({ success: false, error: 'Dados incompletos' });
-        }
+        const consentData = req.body;
+        const ipHash = hashIP(req.ip || req.connection.remoteAddress || 'unknown');
         
         const logEntry = {
+            id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
-            apiKey: apiKey,
-            url: url,
-            consent: consent,
-            ipHash: crypto.createHash('sha256').update(req.ip).digest('hex')
+            consent: consentData,
+            ipHash,
+            userAgent: req.headers['user-agent'] || 'unknown',
+            referer: req.headers.referer || '',
         };
-        
-        const logDir = path.join(__dirname, 'data', 'logs');
-        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-        fs.appendFileSync(path.join(logDir, 'consent_log.txt'), JSON.stringify(logEntry) + '\n');
-        
-        res.json({ success: true, message: 'Consentimento registrado' });
-    } catch (error) {
-        logger.error('Consent log error:', error.message || error);
-        res.status(500).json({ success: false, error: 'Erro interno' });
-    }
-});
 
-// API para solicitação de exclusão de dados
-app.post('/api/data-deletion', (req, res) => {
-    try {
-        const { email, requestType } = req.body;
-        if (!email || !requestType) {
-            return res.status(400).json({ success: false, error: 'Dados incompletos' });
+        // Log para arquivo
+        const logDir = path.join(__dirname, 'logs', 'consent');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
         }
         
-        const requestEntry = {
-            ...req.body,
-            timestamp: new Date().toISOString(),
-            ipHash: crypto.createHash('sha256').update(req.ip).digest('hex'),
-            status: 'pending'
-        };
+        const logFile = path.join(logDir, `consent-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}.log`);
+        fs.appendFileSync(logFile, JSON.stringify(logEntry) + '\n');
+
+        logger.info(`Consentimento registrado: ${logEntry.id}`);
+        res.json({ success: true, consentId: logEntry.id });
         
-        const logDir = path.join(__dirname, 'data', 'logs');
-        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-        fs.appendFileSync(path.join(logDir, 'deletion_requests.txt'), JSON.stringify(requestEntry) + '\n');
-        
-        res.json({ success: true, message: 'Solicitação de exclusão registrada' });
     } catch (error) {
-        logger.error('Data deletion request error:', error.message || error);
-        res.status(500).json({ success: false, error: 'Erro interno' });
+        logger.error('Erro ao registrar consentimento:', error);
+        res.status(500).json({ error: 'Falha ao registrar consentimento' });
     }
 });
 
-// ===== HTML GENERATORS =====
+app.post('/api/data-deletion', (req, res) => {
+    try {
+        const requestData = req.body;
+        const requestId = crypto.randomUUID();
+        const ipHash = hashIP(req.ip || req.connection.remoteAddress || 'unknown');
+        
+        const deletionRequest = {
+            id: requestId,
+            timestamp: new Date().toISOString(),
+            email: requestData.email,
+            robotName: requestData.robotName,
+            url: requestData.url,
+            requestType: requestData.requestType,
+            dataTypes: requestData.dataTypes,
+            reason: requestData.reason,
+            status: 'pending',
+            ipHash,
+            userAgent: req.headers['user-agent'] || 'unknown',
+            processingDeadline: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+        };
+
+        // Log para arquivo
+        const logDir = path.join(__dirname, 'logs', 'deletion');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        
+        const logFile = path.join(logDir, `deletion-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}.log`);
+        fs.appendFileSync(logFile, JSON.stringify(deletionRequest) + '\n');
+
+        logger.info(`Solicitação de exclusão registrada: ${requestId}`);
+        res.json({ 
+            success: true, 
+            requestId,
+            message: 'Solicitação recebida. Será processada em até 72 horas.' 
+        });
+        
+    } catch (error) {
+        logger.error('Erro ao processar solicitação de exclusão:', error);
+        res.status(500).json({ error: 'Falha ao processar solicitação' });
+    }
+});
+
+// Funções auxiliares
+function hashIP(ip) {
+    if (!ip) return 'unknown';
+    return crypto.createHash('sha256').update(ip + (process.env.IP_SALT || 'default_salt')).digest('hex').substring(0, 16);
+}
 
 // Gerador de HTML da Política de Privacidade
 function generatePrivacyPolicyHTML() {
@@ -1250,7 +1107,7 @@ function generatePrivacyPolicyHTML() {
                 <ul>
                     <li>Criptografia de dados em trânsito (TLS/SSL)</li>
                     <li>Hash de endereços IP (nunca armazenamos IPs brutos)</li>
-                    <li>Controles de acesso baseados em API Keys</li>
+                    <li>Controles de acesso baseados em funções</li>
                     <li>Monitoramento e logs de segurança</li>
                     <li>Processamento temporário (dados não armazenados permanentemente)</li>
                 </ul>
@@ -1413,7 +1270,6 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%
 .chat-header{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;padding:20px;text-align:center;position:relative}
 .chat-header h1{font-size:1.5rem;font-weight:600}
 .chat-header .subtitle{font-size:0.9rem;opacity:0.9;margin-top:5px}
-.auth-badge{position:absolute;top:10px;right:10px;background:rgba(16,185,129,0.2);color:rgba(255,255,255,0.9);padding:5px 10px;border-radius:15px;font-size:0.7rem;border:1px solid rgba(16,185,129,0.3)}
 .chat-messages{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;background:#f8fafc}
 .chat-message{max-width:70%;padding:15px;border-radius:15px;font-size:0.95rem;line-height:1.4}
 .chat-message.user{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;align-self:flex-end;border-bottom-right-radius:5px}
@@ -1428,129 +1284,136 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%
 .typing-dot{width:8px;height:8px;background:#64748b;border-radius:50%;animation:typing 1.4s infinite}
 .typing-dot:nth-child(2){animation-delay:0.2s}
 .typing-dot:nth-child(3){animation-delay:0.4s}
-@keyframes typing{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+@media (max-width:768px){.chat-container{height:100vh;border-radius:0}.chat-message{max-width:85%}}
+.auth-badge{position:absolute;top:10px;right:10px;background:rgba(16,185,129,0.2);color:rgba(255,255,255,0.9);padding:5px 10px;border-radius:15px;font-size:0.7rem;border:1px solid rgba(16,185,129,0.3)}
 </style>
 </head>
 <body>
 <div class="chat-container">
 <div class="chat-header">
+<div class="auth-badge">🔒 Licenciado</div>
 <h1>${safeRobotName}</h1>
-<p class="subtitle">Powered by LinkMágico</p>
-${apiKey ? '<div class="auth-badge">Autenticado</div>' : ''}
+<div class="subtitle">IA Assistente - LinkMágico v6.0</div>
 </div>
-<div class="chat-messages" id="chat-messages">
-<div class="chat-message bot">Olá! Eu sou ${safeRobotName}. Como posso te ajudar hoje?</div>
+<div class="chat-messages" id="chatMessages">
+<div class="chat-message bot">Olá! Sou ${safeRobotName}, seu assistente de IA. Como posso ajudar você hoje?</div>
 </div>
 <div class="chat-input-container">
-<input type="text" id="chat-input" class="chat-input" placeholder="Faça uma pergunta...">
-<button id="send-button" class="send-button"><i class="fas fa-paper-plane"></i></button>
+<input type="text" class="chat-input" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
+<button class="send-button" id="sendButton"><i class="fas fa-paper-plane"></i></button>
 </div>
-<div class="typing-indicator" id="typing-indicator">
-<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+<div class="typing-indicator" id="typingIndicator">
+<span>Digitando</span>
+<div class="typing-dot"></div>
+<div class="typing-dot"></div>
+<div class="typing-dot"></div>
 </div>
 </div>
 <script>
-(function(){
-    const chatMessages = document.getElementById('chat-messages');
-    const chatInput = document.getElementById('chat-input');
-    const sendButton = document.getElementById('send-button');
-    const typingIndicator = document.getElementById('typing-indicator');
-    const pageData = ${escapedPageData};
-    const robotName = "${safeRobotName}";
-    const customInstructions = "${safeInstructions}";
-    const apiKey = "${safeApiKey}";
-    let conversation = [];
+const pageData = ${escapedPageData};
+const robotName = "${safeRobotName}";
+const customInstructions = "${safeInstructions}";
+const apiKey = "${safeApiKey}";
 
-    function addMessage(text, sender) {
-        const messageElement = document.createElement('div');
-        messageElement.className = `chat-message ${sender}`;
-        messageElement.textContent = text;
-        chatMessages.appendChild(messageElement);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
+const chatMessages = document.getElementById('chatMessages');
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+const typingIndicator = document.getElementById('typingIndicator');
 
-    async function handleSend() {
-        const message = chatInput.value.trim();
-        if (!message) return;
+function addMessage(text, isUser = false) {
+const messageDiv = document.createElement('div');
+messageDiv.className = \`chat-message \${isUser ? 'user' : 'bot'}\`;
+messageDiv.textContent = text;
+chatMessages.appendChild(messageDiv);
+chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-        addMessage(message, 'user');
-        chatInput.value = '';
-        sendButton.disabled = true;
-        typingIndicator.style.display = 'flex';
+async function sendMessage() {
+const message = messageInput.value.trim();
+if (!message) return;
 
-        conversation.push({ role: 'user', content: message });
+addMessage(message, true);
+messageInput.value = '';
+sendButton.disabled = true;
+typingIndicator.style.display = 'flex';
 
-        try {
-            const response = await fetch('/chat-universal', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': apiKey
-                },
-                body: JSON.stringify({
-                    message: message,
-                    pageData: pageData,
-                    conversationId: 'chatbot_' + Date.now(),
-                    instructions: customInstructions,
-                    robotName: robotName
-                })
-            });
+try {
+const response = await fetch('/chat-universal', {
+method: 'POST',
+headers: { 
+    'Content-Type': 'application/json',
+    'X-API-Key': apiKey
+},
+body: JSON.stringify({
+message: message,
+pageData: pageData,
+robotName: robotName,
+instructions: customInstructions,
+conversationId: 'chatbot_' + Date.now()
+})
+});
 
-            if (!response.ok) throw new Error('Network response was not ok');
+const data = await response.json();
+if (data.success) {
+addMessage(data.response, false);
+} else {
+addMessage('Desculpe, ocorreu um erro. Tente novamente.', false);
+}
+} catch (error) {
+addMessage('Erro de conexão. Verifique sua internet.', false);
+} finally {
+typingIndicator.style.display = 'none';
+sendButton.disabled = false;
+messageInput.focus();
+}
+}
 
-            const data = await response.json();
-            if (data.success) {
-                addMessage(data.response, 'bot');
-                conversation.push({ role: 'assistant', content: data.response });
-            } else {
-                addMessage('Desculpe, ocorreu um erro. Tente novamente.', 'bot');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            addMessage('Não foi possível conectar ao servidor. Verifique sua conexão.', 'bot');
-        }
+sendButton.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => {
+if (e.key === 'Enter') sendMessage();
+});
 
-        sendButton.disabled = false;
-        typingIndicator.style.display = 'none';
-    }
-
-    sendButton.addEventListener('click', handleSend);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSend();
-    });
-})();
+messageInput.focus();
 </script>
 </body>
 </html>`;
 }
 
-// ===== SERVER INITIALIZATION =====
-const PORT = process.env.PORT || 8080;
+// ===== FIM DAS ROTAS LGPD =====
 
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`🔗 Link Mágico: http://localhost:${PORT}`);
-    console.log('🔑 Para gerar uma API key, acesse /admin/generate-key/SUA_SENHA_MESTRA');
+// Rota de fallback para qualquer outra requisição
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ===== ERROR HANDLING =====
-app.use((err, req, res, next) => {
-    logger.error('Unhandled error:', { 
-        message: err.message, 
-        stack: err.stack, 
-        path: req.path, 
-        method: req.method 
+// ===== Server startup =====
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`🚀 LinkMágico Server v6.0 rodando na porta ${PORT}`);
+    logger.info(`🔒 Sistema de autenticação ativado`);
+    logger.info(`📊 Health check disponível em: http://localhost:${PORT}/health`);
+    logger.info(`🤖 Chatbot disponível em: http://localhost:${PORT}/chatbot`);
+    logger.info(`📧 Widget JS disponível em: http://localhost:${PORT}/widget.js`);
+    logger.info(`📄 Política de Privacidade disponível em: http://localhost:${PORT}/privacy.html`);
+    logger.info(`🗑️ Exclusão de Dados disponível em: http://localhost:${PORT}/excluir-dados`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        logger.info('Process terminated');
+        process.exit(0);
     });
-    if (res.headersSent) return next(err);
-    res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection at:', { promise, reason: reason.message || reason });
+process.on('SIGINT', () => {
+    logger.info('SIGINT received, shutting down gracefully');
+    server.close(() => {
+        logger.info('Process terminated');
+        process.exit(0);
+    });
 });
 
-process.on('uncaughtException', (err) => {
-    logger.error('Uncaught Exception thrown:', { message: err.message, stack: err.stack });
-    process.exit(1);
-});
-
+module.exports = app;

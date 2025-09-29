@@ -1,331 +1,330 @@
-// auth.js - Sistema de Autenticação LinkMágico v6.0
-const fs = require('fs');
-const path = require('path');
+// auth.js - Middleware de autenticação para LinkMágico v6.0
+const crypto = require('crypto');
 
-// Função para carregar e validar API keys
-function loadApiKeys() {
-    try {
-        const dataFile = path.join(__dirname, 'data', 'api_keys.json');
-        if (!fs.existsSync(dataFile)) {
-            console.log('⚠️ Arquivo de API keys não encontrado, criando estrutura...');
-            const dataDir = path.join(__dirname, 'data');
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            
-            const initialData = {
-                apiKeys: [],
-                saved: new Date().toISOString()
-            };
-            fs.writeFileSync(dataFile, JSON.stringify(initialData, null, 2));
-            return new Map();
-        }
-        
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        const keyMap = new Map();
-        
-        if (data.apiKeys && Array.isArray(data.apiKeys)) {
-            data.apiKeys.forEach(([key, info]) => {
-                if (key && info && info.active) {
-                    keyMap.set(key, info);
-                }
-            });
-        }
-        
-        console.log(`📊 Carregadas ${keyMap.size} API keys ativas`);
-        return keyMap;
-    } catch (error) {
-        console.error('❌ Erro ao carregar API keys:', error);
-        return new Map();
-    }
-}
+// Simulação de banco de dados de API keys (em produção, usar banco real)
+const API_KEYS = new Map([
+    // Formato: [hash_da_key, { cliente, status, criado, usado }]
+    ['a1b2c3d4e5f6g7h8i9j0', { 
+        cliente: 'Cliente Demo', 
+        status: 'ativo', 
+        criado: '2024-01-01', 
+        ultimoUso: null,
+        usos: 0,
+        limite: 1000 // limite de usos mensais
+    }],
+    ['demo123456789abcdef', { 
+        cliente: 'Demo User', 
+        status: 'ativo', 
+        criado: '2024-01-01', 
+        ultimoUso: null,
+        usos: 0,
+        limite: 500
+    }]
+]);
 
-// Cache de API keys para performance
-let apiKeysCache = loadApiKeys();
-let lastCacheUpdate = Date.now();
+// Cache de keys válidas (evita consulta constante)
+const keyCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
-function refreshApiKeysCache() {
-    const now = Date.now();
-    if (now - lastCacheUpdate > CACHE_TTL) {
-        apiKeysCache = loadApiKeys();
-        lastCacheUpdate = now;
-    }
+/**
+ * Gera uma nova API key
+ */
+function generateAPIKey() {
+    return crypto.randomBytes(16).toString('hex');
 }
 
-// Função para validar API key
-function validateApiKey(apiKey) {
-    if (!apiKey || typeof apiKey !== 'string') {
-        return { valid: false, reason: 'API key inválida' };
+/**
+ * Valida formato da API key
+ */
+function isValidKeyFormat(key) {
+    return typeof key === 'string' && 
+           key.length >= 16 && 
+           key.length <= 64 && 
+           /^[a-zA-Z0-9]+$/.test(key);
+}
+
+/**
+ * Verifica se a API key é válida
+ */
+function validateAPIKey(apiKey) {
+    if (!apiKey || !isValidKeyFormat(apiKey)) {
+        return { valid: false, reason: 'Formato de chave inválido' };
     }
-    
-    if (!apiKey.startsWith('lm_')) {
-        return { valid: false, reason: 'Formato de API key inválido' };
+
+    // Verifica cache primeiro
+    const cached = keyCache.get(apiKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        return { valid: true, cliente: cached.cliente };
     }
-    
-    refreshApiKeysCache();
-    
-    const keyInfo = apiKeysCache.get(apiKey);
-    if (!keyInfo) {
-        return { valid: false, reason: 'API key não encontrada' };
+
+    // Verifica na "base de dados"
+    const keyData = API_KEYS.get(apiKey);
+    if (!keyData) {
+        return { valid: false, reason: 'Chave não encontrada' };
     }
-    
-    if (!keyInfo.active) {
-        return { valid: false, reason: 'API key desativada' };
+
+    if (keyData.status !== 'ativo') {
+        return { valid: false, reason: 'Chave inativa' };
     }
-    
-    // Verificar limites (se implementado)
-    if (keyInfo.limits) {
-        const now = new Date();
-        const today = now.toDateString();
-        
-        // Verificar limite diário (implementação básica)
-        if (keyInfo.usage && keyInfo.usage.daily && keyInfo.usage.daily.date === today) {
-            if (keyInfo.usage.daily.requests >= keyInfo.limits.dailyRequests) {
-                return { valid: false, reason: 'Limite diário excedido' };
-            }
-        }
-    }
-    
+
+    // Atualiza cache
+    keyCache.set(apiKey, {
+        cliente: keyData.cliente,
+        timestamp: Date.now()
+    });
+
+    // Atualiza estatísticas de uso
+    keyData.ultimoUso = new Date().toISOString();
+    keyData.usos += 1;
+
     return { 
         valid: true, 
-        client: {
-            nome: keyInfo.client || 'Cliente',
-            plano: keyInfo.plan || 'pro',
-            created: keyInfo.created,
-            limits: keyInfo.limits
-        }
+        cliente: keyData.cliente,
+        usos: keyData.usos,
+        limite: keyData.limite 
     };
 }
 
-// Middleware de autenticação condicional
+/**
+ * Middleware de autenticação
+ */
 function authMiddleware(req, res, next) {
-    // Rotas que sempre são públicas
+    // Rotas que não precisam de autenticação
     const publicRoutes = [
         '/',
         '/health',
         '/privacy.html',
-        '/privacy-policy',
         '/excluir-dados',
+        '/privacy-policy',
         '/delete-data',
-        '/data-deletion',
-        '/api/log-consent',
-        '/api/data-deletion',
-        '/widget.js',
-        '/chatbot'
+        '/data-deletion'
     ];
+
+    // Arquivos estáticos públicos
+    const publicAssets = [
+        '.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg'
+    ];
+
+    const path = req.path;
     
-    // Se é rota pública, passa direto
-    if (publicRoutes.includes(req.path)) {
+    // Verifica se é rota pública
+    if (publicRoutes.includes(path) || path.startsWith('/api/log-consent') || path.startsWith('/api/data-deletion')) {
         return next();
     }
-    
-    // Pegar API key do header ou query string
-    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.key;
-    
-    // Se não tem API key, permite (modo gratuito)
+
+    // Verifica se é arquivo estático público
+    if (publicAssets.some(ext => path.endsWith(ext))) {
+        return next();
+    }
+
+    // Extrai API key do header, query param ou body
+    let apiKey = req.headers['x-api-key'] || 
+                 req.headers['authorization']?.replace('Bearer ', '') ||
+                 req.query.api_key ||
+                 req.body?.api_key;
+
+    // Para o widget, pode vir como parâmetro na URL
+    if (!apiKey && path === '/widget.js') {
+        apiKey = req.query.key;
+    }
+
     if (!apiKey) {
-        return next();
-    }
-    
-    // Se tem API key, valida
-    const validation = validateApiKey(apiKey);
-    
-    if (!validation.valid) {
-        console.log(`🔒 API key rejeitada: ${validation.reason}`);
-        return res.status(401).json({ 
-            error: 'API key inválida',
-            reason: validation.reason,
-            hint: 'Verifique se sua API key está correta e ativa'
+        return res.status(401).json({
+            success: false,
+            error: 'API key obrigatória',
+            message: 'Forneça sua chave de acesso via header X-API-Key, Authorization Bearer, ou parâmetro api_key',
+            help: 'Adquira sua licença em: https://link-magico.com/pricing'
         });
     }
-    
-    // Salva informações do cliente na requisição
-    req.cliente = validation.client;
-    req.apiKey = apiKey;
-    
-    console.log(`✅ Cliente autenticado: ${validation.client.nome}`);
-    next();
-}
 
-// Middleware específico para páginas HTML que precisam de auth
-function htmlAuthMiddleware(req, res, next) {
-    // Páginas HTML que precisam de autenticação obrigatória
-    const protectedHtmlRoutes = [];
-    
-    if (!protectedHtmlRoutes.includes(req.path)) {
-        return next();
-    }
-    
-    const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.key;
-    
-    if (!apiKey) {
-        return res.status(401).send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Autenticação Necessária</title>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    .error { color: #dc3545; }
-                </style>
-            </head>
-            <body>
-                <h1 class="error">🔒 Autenticação Necessária</h1>
-                <p>Esta página requer uma API key válida.</p>
-                <p>Adicione ?api_key=sua_chave_aqui na URL</p>
-            </body>
-            </html>
-        `);
-    }
-    
-    const validation = validateApiKey(apiKey);
+    // Valida a API key
+    const validation = validateAPIKey(apiKey);
     
     if (!validation.valid) {
-        return res.status(401).send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>API Key Inválida</title>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    .error { color: #dc3545; }
-                </style>
-            </head>
-            <body>
-                <h1 class="error">❌ API Key Inválida</h1>
-                <p>Motivo: ${validation.reason}</p>
-                <p>Verifique se sua API key está correta e ativa.</p>
-            </body>
-            </html>
-        `);
+        return res.status(403).json({
+            success: false,
+            error: 'Chave de acesso inválida',
+            reason: validation.reason,
+            message: 'Verifique sua chave de acesso ou renove sua licença',
+            help: 'Suporte: https://link-magico.com/suporte'
+        });
     }
-    
-    req.cliente = validation.client;
-    req.apiKey = apiKey;
+
+    // Adiciona informações do cliente ao request
+    req.cliente = {
+        nome: validation.cliente,
+        apiKey: apiKey,
+        usos: validation.usos,
+        limite: validation.limite
+    };
+
+    // Log de uso (opcional)
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`✅ Acesso autorizado: ${validation.cliente} (${path})`);
+    }
+
     next();
 }
 
-// Função para criar rota de validação de API key
+/**
+ * Middleware para páginas HTML protegidas
+ */
+function htmlAuthMiddleware(req, res, next) {
+    const protectedPages = ['/chat.html', '/chatbot'];
+    
+    if (!protectedPages.some(page => req.path.startsWith(page))) {
+        return next();
+    }
+
+    // Verifica API key na URL
+    const apiKey = req.query.api_key || req.query.key;
+    
+    if (!apiKey) {
+        return res.status(401).send(generateUnauthorizedPage());
+    }
+
+    const validation = validateAPIKey(apiKey);
+    
+    if (!validation.valid) {
+        return res.status(403).send(generateForbiddenPage(validation.reason));
+    }
+
+    req.cliente = {
+        nome: validation.cliente,
+        apiKey: apiKey
+    };
+
+    next();
+}
+
+/**
+ * Página de erro não autorizado
+ */
+function generateUnauthorizedPage() {
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Restrito - LinkMágico</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; color: white; }
+        .container { text-align: center; background: rgba(255,255,255,0.1); padding: 3rem; border-radius: 20px; backdrop-filter: blur(20px); max-width: 500px; }
+        h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        p { font-size: 1.1rem; margin-bottom: 2rem; opacity: 0.9; }
+        .cta { background: #10b981; color: white; padding: 1rem 2rem; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; text-decoration: none; display: inline-block; transition: all 0.3s ease; }
+        .cta:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Acesso Restrito</h1>
+        <p>Esta ferramenta requer uma licença válida do LinkMágico para funcionar.</p>
+        <p>Forneça sua chave de acesso como parâmetro: <code>?api_key=SUA_CHAVE</code></p>
+        <a href="https://link-magico.com/pricing" class="cta">Adquirir Licença</a>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * Página de erro proibido
+ */
+function generateForbiddenPage(reason) {
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Negado - LinkMágico</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; color: white; }
+        .container { text-align: center; background: rgba(255,255,255,0.1); padding: 3rem; border-radius: 20px; backdrop-filter: blur(20px); max-width: 500px; }
+        h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+        p { font-size: 1.1rem; margin-bottom: 1rem; opacity: 0.9; }
+        .reason { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; margin: 1.5rem 0; font-family: monospace; }
+        .cta { background: #f59e0b; color: white; padding: 1rem 2rem; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; text-decoration: none; display: inline-block; transition: all 0.3s ease; }
+        .cta:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(245, 158, 11, 0.4); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚠️ Chave Inválida</h1>
+        <p>Sua chave de acesso não é válida ou está inativa.</p>
+        <div class="reason">Motivo: ${reason}</div>
+        <p>Entre em contato com o suporte para resolver este problema.</p>
+        <a href="https://link-magico.com/suporte" class="cta">Falar com Suporte</a>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * Rota para validar API key (opcional)
+ */
 function createValidationRoute(app) {
-    app.get('/api/validate-key', (req, res) => {
-        const apiKey = req.headers['x-api-key'] || req.query.api_key || req.query.key;
-        
-        if (!apiKey) {
-            return res.status(400).json({
-                valid: false,
-                error: 'API key não fornecida'
-            });
-        }
-        
-        const validation = validateApiKey(apiKey);
-        
-        if (!validation.valid) {
-            return res.status(401).json({
-                valid: false,
-                error: validation.reason
-            });
-        }
-        
+    app.get('/api/validate-key', authMiddleware, (req, res) => {
         res.json({
+            success: true,
             valid: true,
-            client: validation.client.nome,
-            plan: validation.client.plano,
-            created: validation.client.created
+            cliente: req.cliente.nome,
+            usos: req.cliente.usos,
+            limite: req.cliente.limite,
+            message: 'Chave válida e ativa'
         });
     });
-    
-    console.log('📡 Rota de validação de API key criada: /api/validate-key');
 }
 
-// Função para atualizar uso da API key
-function updateKeyUsage(apiKey, operation = 'request') {
-    try {
-        refreshApiKeysCache();
-        
-        const dataFile = path.join(__dirname, 'data', 'api_keys.json');
-        if (!fs.existsSync(dataFile)) return;
-        
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-        
-        if (!data.apiKeys || !Array.isArray(data.apiKeys)) return;
-        
-        const keyIndex = data.apiKeys.findIndex(([key]) => key === apiKey);
-        
-        if (keyIndex === -1) return;
-        
-        const [key, keyInfo] = data.apiKeys[keyIndex];
-        
-        if (!keyInfo.usage) {
-            keyInfo.usage = {
-                requests: 0,
-                chatbots: 0,
-                extractions: 0
-            };
-        }
-        
-        // Incrementar contador
-        keyInfo.usage.requests = (keyInfo.usage.requests || 0) + 1;
-        
-        if (operation === 'chatbot') {
-            keyInfo.usage.chatbots = (keyInfo.usage.chatbots || 0) + 1;
-        }
-        
-        if (operation === 'extraction') {
-            keyInfo.usage.extractions = (keyInfo.usage.extractions || 0) + 1;
-        }
-        
-        // Atualizar timestamp de último uso
-        keyInfo.lastUsed = new Date().toISOString();
-        
-        // Salvar
-        data.apiKeys[keyIndex] = [key, keyInfo];
-        data.saved = new Date().toISOString();
-        
-        fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
-        
-        // Atualizar cache
-        apiKeysCache.set(apiKey, keyInfo);
-        
-        console.log(`📈 Uso atualizado para ${keyInfo.client}: ${keyInfo.usage.requests} requests`);
-        
-    } catch (error) {
-        console.error('❌ Erro ao atualizar uso da API key:', error);
+/**
+ * Adiciona chave à base de dados (função administrativa)
+ */
+function addAPIKey(cliente, limite = 1000) {
+    const apiKey = generateAPIKey();
+    API_KEYS.set(apiKey, {
+        cliente: cliente,
+        status: 'ativo',
+        criado: new Date().toISOString(),
+        ultimoUso: null,
+        usos: 0,
+        limite: limite
+    });
+    return apiKey;
+}
+
+/**
+ * Remove chave da base de dados
+ */
+function removeAPIKey(apiKey) {
+    const removed = API_KEYS.delete(apiKey);
+    keyCache.delete(apiKey);
+    return removed;
+}
+
+/**
+ * Lista todas as chaves (função administrativa)
+ */
+function listAPIKeys() {
+    const keys = [];
+    for (const [key, data] of API_KEYS.entries()) {
+        keys.push({
+            key: key.substring(0, 8) + '...',
+            cliente: data.cliente,
+            status: data.status,
+            criado: data.criado,
+            usos: data.usos,
+            limite: data.limite
+        });
     }
-}
-
-// Middleware para rastrear uso
-function trackUsageMiddleware(req, res, next) {
-    const originalSend = res.send;
-    
-    res.send = function(data) {
-        // Se a requisição foi bem-sucedida e tem API key, rastreia uso
-        if (req.apiKey && res.statusCode < 400) {
-            let operation = 'request';
-            
-            if (req.path === '/extract') {
-                operation = 'extraction';
-            } else if (req.path === '/chat-universal') {
-                operation = 'chatbot';
-            }
-            
-            updateKeyUsage(req.apiKey, operation);
-        }
-        
-        originalSend.call(this, data);
-    };
-    
-    next();
+    return keys;
 }
 
 module.exports = {
     authMiddleware,
     htmlAuthMiddleware,
     createValidationRoute,
-    validateApiKey,
-    updateKeyUsage,
-    trackUsageMiddleware,
-    loadApiKeys
+    generateAPIKey,
+    addAPIKey,
+    removeAPIKey,
+    listAPIKeys,
+    validateAPIKey
 };

@@ -1,12 +1,12 @@
 {
   "apiKeys": [
     [
-      "lm_238f5ecc_4c5e7a9d34cf8b824a6b90433f84840b",
+      "lm_016ef0e7_cc39362db87632a7c5723c300f47370c",
       {
-        "key": "lm_238f5ecc_4c5e7a9d34cf8b824a6b90433f84840b",
+        "key": "lm_016ef0e7_cc39362db87632a7c5723c300f47370c",
         "client": "Cliente Principal",
         "plan": "pro",
-        "created": "2025-09-28T05:19:57.470Z",
+        "created": "2025-09-28T12:45:03.389Z",
         "active": true,
         "limits": {
           "dailyRequests": 500,
@@ -23,5 +23,5 @@
       }
     ]
   ],
-  "saved": "2025-09-28T05:19:57.471Z"
+  "saved": "2025-09-28T12:45:03.398Z"
 }
