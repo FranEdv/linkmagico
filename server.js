@@ -1553,4 +1553,3 @@ process.on('uncaughtException', (err) => {
     logger.error('Uncaught Exception thrown:', { message: err.message, stack: err.stack });
     process.exit(1);
 });
-
