@@ -21,8 +21,6 @@ const { whitelabelManager } = require('./whitelabel');
 const { structuredLeadsManager } = require('./structured-leads');
 console.log('✅ Módulos V3.0 carregados');
 
-
-
 const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
@@ -212,8 +210,6 @@ class LeadBackupSystem {
         
         // Agendar backup diário
         this.scheduleAutomaticBackups();
-        
-
     }
 
     ensureBackupDirectory() {
@@ -353,8 +349,6 @@ class LeadBackupSystem {
         process.on("SIGINT", shutdown);
     }
 }
-
-
 
 // ===== SISTEMA DE ANÁLISE DE JORNADA DO CLIENTE =====
 class JourneyAnalyzer {
@@ -830,6 +824,353 @@ class SistemaExtracaoContatosAprimorado {
 // Inicializar sistema aprimorado de extração de contatos
 const sistemaContatosAprimorado = new SistemaExtracaoContatosAprimorado();
 
+// ===== SISTEMA DE SUPERINTELIGÊNCIA EMOCIONAL =====
+class SuperInteligenciaEmocional {
+    constructor() {
+        console.log("🧠 Sistema de SuperInteligência Emocional Inicializado");
+        
+        // Mapeamento de emoções e sentimentos
+        this.emociones = {
+            positivas: [
+                'feliz', 'alegre', 'contente', 'satisfeito', 'entusiasmado', 'animado',
+                'gratidão', 'grato', 'obrigado', 'agradecido', 'satisfeito', 'perfeito',
+                'excelente', 'ótimo', 'maravilhoso', 'incrível', 'fantástico', 'show'
+            ],
+            negativas: [
+                'triste', 'chateado', 'frustrado', 'irritado', 'nervoso', 'ansioso',
+                'preocupado', 'desapontado', 'decepcionado', 'bravo', 'raiva', 'ódio',
+                'péssimo', 'horrível', 'terrível', 'lento', 'difícil', 'complicado'
+            ],
+            urgentes: [
+                'urgente', 'urgência', 'imediatamente', 'agora', 'rápido', 'pressa',
+                'importante', 'crucial', 'emergência', 'prioridade', 'hoje', 'já'
+            ],
+            duvidas: [
+                'dúvida', 'duvida', 'pergunta', 'perguntar', 'como funciona', 'o que é',
+                'explicar', 'entender', 'compreender', 'não sei', 'não entendi'
+            ]
+        };
+
+        // Personalidades adaptativas
+        this.personalidades = {
+            consultivo: {
+                tom: "profissional e acolhedor",
+                empatia: "moderada", 
+                estilo: "focado em soluções",
+                saudacao: "Como posso ajudá-lo hoje?",
+                despedida: "Estou aqui para o que precisar!"
+            },
+            empatico: {
+                tom: "acolhedor e compreensivo", 
+                empatia: "alta",
+                estilo: "focado em emocional",
+                saudacao: "Oi! Como você está?",
+                despedida: "Fico feliz em poder ajudar!"
+            },
+            tecnico: {
+                tom: "detalhista e preciso",
+                empatia: "baixa",
+                estilo: "focado em informações", 
+                saudacao: "Vamos analisar sua situação",
+                despedida: "Precisa de mais detalhes?"
+            },
+            motivacional: {
+                tom: "entusiasmado e energético",
+                empatia: "alta",
+                estilo: "focado em resultados",
+                saudacao: "Vamos juntos nessa!",
+                despedida: "Você consegue! 💪"
+            }
+        };
+
+        // Sistema de agendamento
+        this.horariosDisponiveis = [
+            "Segunda 09:00", "Segunda 14:00", "Segunda 16:00",
+            "Terça 10:00", "Terça 15:00", "Terça 17:00", 
+            "Quarta 09:30", "Quarta 14:30", "Quarta 16:30",
+            "Quinta 11:00", "Quinta 15:30", "Quinta 17:30",
+            "Sexta 10:30", "Sexta 14:00", "Sexta 16:00"
+        ];
+    }
+
+    analisarEmocao(mensagem) {
+        const mensagemLower = mensagem.toLowerCase();
+        let emocao = "neutro";
+        let intensidade = 1;
+        let urgencia = false;
+
+        // Análise de emoções positivas
+        const positivas = this.emociones.positivas.filter(palavra => 
+            mensagemLower.includes(palavra)
+        ).length;
+
+        // Análise de emoções negativas  
+        const negativas = this.emociones.negativas.filter(palavra =>
+            mensagemLower.includes(palavra)
+        ).length;
+
+        // Detecção de urgência
+        urgencia = this.emociones.urgentes.some(palavra =>
+            mensagemLower.includes(palavra)
+        );
+
+        // Determinar emoção predominante
+        if (positivas > negativas && positivas > 0) {
+            emocao = "positivo";
+            intensidade = Math.min(3, positivas);
+        } else if (negativas > positivas && negativas > 0) {
+            emocao = "negativo"; 
+            intensidade = Math.min(3, negativas);
+        }
+
+        // Ajustar intensidade baseado em urgência
+        if (urgencia) {
+            intensidade += 1;
+        }
+
+        console.log(`🎭 Análise Emocional: ${emocao} (intensidade: ${intensidade}) ${urgencia ? '🚨 URGENTE' : ''}`);
+
+        return { emocao, intensidade, urgencia };
+    }
+
+    selecionarPersonalidade(emocao, intensidade, jornada) {
+        let personalidade = "consultivo";
+
+        if (emocao === "negativo" && intensidade >= 2) {
+            personalidade = "empatico";
+        } else if (jornada === "negociacao" && emocao === "positivo") {
+            personalidade = "motivacional"; 
+        } else if (jornada === "descoberta" && emocao === "neutro") {
+            personalidade = "tecnico";
+        } else if (emocao === "positivo" && intensidade >= 2) {
+            personalidade = "motivacional";
+        }
+
+        console.log(`🎨 Personalidade selecionada: ${personalidade}`);
+        return this.personalidades[personalidade];
+    }
+
+    gerarRespostaEmpatica(mensagem, emocao, personalidade, contatos) {
+        let respostaBase = "";
+        const excitementWord = journeyAnalyzer.getRandomSynonym('empolgação');
+
+        // Respostas baseadas na emoção detectada
+        switch (emocao.emocao) {
+            case "positivo":
+                if (emocao.intensidade >= 2) {
+                    respostaBase = `🎉 **Que ${excitementWord} ver seu entusiasmo!** `;
+                } else {
+                    respostaBase = `😊 **Fico feliz em saber!** `;
+                }
+                break;
+            case "negativo":
+                if (emocao.intensidade >= 2) {
+                    respostaBase = `🤗 **Entendo sua frustração e estou aqui para ajudar.** `;
+                } else {
+                    respostaBase = `👂 **Compreendo sua preocupação.** `;
+                }
+                break;
+            default:
+                respostaBase = `💭 **Ótima pergunta!** `;
+        }
+
+        // Adicionar urgencia se detectada
+        if (emocao.urgencia) {
+            respostaBase = `🚨 **Prioridade máxima!** ` + respostaBase;
+        }
+
+        // Adaptar tom baseado na personalidade
+        switch (personalidade.tom) {
+            case "acolhedor e compreensivo":
+                respostaBase += "Vamos resolver isso juntos, passo a passo. ";
+                break;
+            case "entusiasmado e energético":
+                respostaBase += "Você está no caminho certo! ";
+                break;
+            case "detalhista e preciso":
+                respostaBase += "Deixe-me explicar detalhadamente. ";
+                break;
+            default:
+                respostaBase += "Aqui estão as informações que você precis
+
+
+                break;
+            default:
+                respostaBase += "Aqui estão as informações que você precisa: ";
+        }
+
+        return respostaBase;
+    }
+
+    // ===== SISTEMA DE AGENDAMENTO INTELIGENTE =====
+    detectarAgendamento(mensagem) {
+        const mensagemLower = mensagem.toLowerCase();
+        const palavrasAgendamento = [
+            'agendar', 'marcar', 'reunião', 'reuniao', 'encontro', 'consulta',
+            'horário', 'horario', 'data', 'hora', 'telefone', 'call', 'vídeo',
+            'video', 'encontro', 'conversar', 'falar', 'ligar', 'whatsapp'
+        ];
+
+        const isAgendamento = palavrasAgendamento.some(palavra => 
+            mensagemLower.includes(palavra)
+        );
+
+        if (isAgendamento) {
+            console.log("📅 Solicitação de agendamento detectada");
+            return this.gerarOpcoesAgendamento();
+        }
+
+        return null;
+    }
+
+    gerarOpcoesAgendamento() {
+        const horarios = this.horariosDisponiveis.slice(0, 3); // 3 primeiros horários
+        let resposta = `**📅 AGENDAMENTO DISPONÍVEL**\n\n`;
+        resposta += `Encontrei estes horários para nossa conversa:\n\n`;
+        
+        horarios.forEach((horario, index) => {
+            resposta += `${index + 1}. ${horario}\n`;
+        });
+        
+        resposta += `\n💬 **Qual horário prefere?**\n`;
+        resposta += `📞 Ou se preferir, posso passar nossos contatos diretos!`;
+        
+        return resposta;
+    }
+
+    processarAgendamento(mensagem) {
+        const mensagemLower = mensagem.toLowerCase();
+        
+        // Detectar seleção de horário
+        for (let i = 0; i < this.horariosDisponiveis.length; i++) {
+            if (mensagemLower.includes((i + 1).toString()) || 
+                mensagemLower.includes(this.horariosDisponiveis[i].toLowerCase())) {
+                
+                return `✅ **AGENDAMENTO CONFIRMADO!**\n\n` +
+                       `📅 **Horário:** ${this.horariosDisponiveis[i]}\n` +
+                       `🎯 **Próximo passo:** Nossa equipe entrará em contato para confirmar.\n` +
+                       `📞 **Contato direto:** Veja nossos canais acima! ⬆️`;
+            }
+        }
+
+        return null;
+    }
+}
+
+// Inicializar SuperInteligência
+const superInteligencia = new SuperInteligenciaEmocional();
+
+// ===== SISTEMA DE BOTÕES FIXOS NO TOPO =====
+function gerarBotoesFixos(contatos, robotName) {
+    let botoesHTML = `
+    <div class="lm-botoes-fixos" style="
+        position: sticky; 
+        top: 0; 
+        background: white; 
+        padding: 15px; 
+        border-bottom: 2px solid #3b82f6;
+        z-index: 1000;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    ">
+        <div style="font-weight: bold; color: #1e40af; width: 100%; text-align: center; margin-bottom: 10px;">
+            📞 Fale com ${robotName}
+        </div>
+    `;
+
+    // Botão de WhatsApp
+    if (contatos.whatsapp && contatos.whatsapp.length > 0) {
+        const whatsappNum = contatos.whatsapp[0].replace(/\D/g, '');
+        botoesHTML += `
+        <a href="https://wa.me/${whatsappNum}" target="_blank" style="
+            background: #25D366; 
+            color: white; 
+            padding: 12px 20px; 
+            border-radius: 25px; 
+            text-decoration: none; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(37, 211, 102, 0.4)';" 
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(37, 211, 102, 0.3)';">
+            <i class="fab fa-whatsapp"></i> WhatsApp
+        </a>`;
+    }
+
+    // Botão de Telefone
+    if (contatos.telefone && contatos.telefone.length > 0) {
+        const telefoneNum = contatos.telefone[0].replace(/\D/g, '');
+        botoesHTML += `
+        <a href="tel:${telefoneNum}" style="
+            background: #3b82f6; 
+            color: white; 
+            padding: 12px 20px; 
+            border-radius: 25px; 
+            text-decoration: none; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.4)';" 
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(59, 130, 246, 0.3)';">
+            <i class="fas fa-phone"></i> Ligar
+        </a>`;
+    }
+
+    // Botão de Agendamento
+    botoesHTML += `
+    <button onclick="iniciarAgendamento()" style="
+        background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%); 
+        color: white; 
+        padding: 12px 20px; 
+        border-radius: 25px; 
+        border: none;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+    " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(139, 92, 246, 0.4)';" 
+       onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(139, 92, 246, 0.3)';">
+        <i class="fas fa-calendar-check"></i> Agendar
+    </button>`;
+
+    // Botão de Site
+    if (contatos.site && contatos.site.length > 0) {
+        botoesHTML += `
+        <a href="${contatos.site[0]}" target="_blank" style="
+            background: #10B981; 
+            color: white; 
+            padding: 12px 20px; 
+            border-radius: 25px; 
+            text-decoration: none; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)';" 
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)';">
+            <i class="fas fa-globe"></i> Site
+        </a>`;
+    }
+
+    botoesHTML += `</div>`;
+
+    return botoesHTML;
+}
+
 // ===== Enhanced Logger =====
 const logger = winston.createLogger({
     level: process.env.LOG_LEVEL || "info",
@@ -999,7 +1340,7 @@ class SistemaExtracaoApurado {
         const garantias = [];
         const seletoresGarantia = [
             '[class*="garantia"]', '[class*="guarantee"]', '[class*="warranty"]',
-            '.safe', '.security', '.refund'
+            '.safe, .security, .refund'
         ];
 
         seletoresGarantia.forEach(seletor => {
@@ -1277,9 +1618,6 @@ const sistemaValidacao = new ValidacaoCruzada();
 app.set("trust proxy", true);
 
 // ===== Session Configuration =====
-// const session = require("express-session");
-
-// Configuração de Sessão para Produção
 let sessionConfig = {
     secret: process.env.SESSION_SECRET || "fallback-secret-change-in-production",
     resave: false,
@@ -1674,8 +2012,6 @@ function extractCleanTextFromHTML(html) {
 }
 
 // ===== Page extraction =====
-
-// ===== FUNÇÃO DE RETRY COM TIMEOUT MELHORADO =====
 async function extractPageDataWithRetry(url, maxRetries = 3) {
     let lastError = null;
     
@@ -1837,7 +2173,7 @@ async function extractPageData(url) {
                 extractedData.bonuses_detected = extractBonuses(bodyText);
 
                 // 🎯 EXTRAIR CONTATOS
-                extractedData.contatos = sistemaExtracao.extrairContatos($);
+                extractedData.contatos = sistemaContatosAprimorado.extrairContatosAprimorado($);
 
                 logger.info(`Cheerio extraction completed for ${url}`);
                 analytics.successfulExtractions++;
@@ -2060,7 +2396,7 @@ async function generateAIResponse(userMessage, pageData = {}, conversationHistor
         }
 
         // 🎯 CORREÇÃO: Limpar mensagem de caracteres especiais
-        const cleanUserMessage = leadSystem.cleanMessage(userMessage);
+        const cleanUserMessage = String(userMessage).replace(/<s>\s*\[OUT\]/g, '').replace(/<[^>]*>/g, '').replace(/\[.*?\]/g, '').trim();
         if (!cleanUserMessage) {
             return "Desculpe, não entendi sua mensagem. Poderia reformular?";
         }
@@ -2072,6 +2408,7 @@ async function generateAIResponse(userMessage, pageData = {}, conversationHistor
 
         // Atualizar estágio do lead se existir
         if (leadId) {
+            const leadSystem = getLeadSystem(process.env.API_KEYS_JSON ? JSON.parse(process.env.API_KEYS_JSON)[0] : "default");
             leadSystem.updateLeadJourneyStage(leadId, journeyStage);
         }
 
@@ -2180,7 +2517,7 @@ RESPONDA em português de forma natural e envolvente.`;
         }
 
         // 🎯 CORREÇÃO FINAL: Limpar resposta de qualquer caractere especial
-        const finalResponse = leadSystem.cleanMessage(clampSentences(String(response).trim(), 3));
+        const finalResponse = String(response).replace(/<s>\s*\[OUT\]/g, '').replace(/<[^>]*>/g, '').replace(/\[.*?\]/g, '').trim();
         const responseTime = Date.now() - startTime;
         
         console.log(`🤖 [IA RESPONSE] Jornada: ${journeyStage} | Bônus: ${shouldMentionBonus}`);
@@ -2408,7 +2745,7 @@ app.post("/api/chat-universal", requireApiKey, async (req, res) => {
     }
 });
 
-// ===== 🎯 NOVO ENDPOINT INTELIGENTE - /api/process-chat-inteligente =====
+// ===== 🎯 ENDPOINT SUPERINTELIGENTE - /api/process-chat-inteligente =====
 app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
     const leadSystem = getLeadSystem(req.cliente.apiKey);
     analytics.chatRequests++;
@@ -2422,7 +2759,7 @@ app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
             });
         }
 
-        console.log('🧠 [CHAT-INTELIGENTE] Processando mensagem:', { 
+        console.log('🧠 [SUPER-INTELIGENCIA] Processando mensagem:', { 
             messageLength: message.length,
             url: url || 'none',
             leadId: leadId || 'none'
@@ -2438,12 +2775,22 @@ app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
             processedPageData = await extractPageData(url);
         }
 
+        // 🎯 SUPERINTELIGÊNCIA: Análise Emocional Avançada
+        const analiseEmocional = superInteligencia.analisarEmocao(message);
+        
         // 🎯 CAPTURA DE INTENÇÕES DO CLIENTE
         const inteligencias = sistemaInteligencias.capturarInteligencias(message);
         
         // 🎯 ANÁLISE DE JORNADA
         const journeyStage = journeyAnalyzer.analyzeJourneyStage(message);
         
+        // 🎯 SELEÇÃO DE PERSONALIDADE ADAPTATIVA
+        const personalidade = superInteligencia.selecionarPersonalidade(
+            analiseEmocional.emocao, 
+            analiseEmocional.intensidade, 
+            journeyStage
+        );
+
         // 🎯 ATUALIZAR CONVERSA DO LEAD SE EXISTIR
         if (leadId) {
             leadSystem.updateLeadConversation(leadId, message, true);
@@ -2452,19 +2799,52 @@ app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
 
         let finalResponse = "";
 
+        // 🎯 DETECTAR AGENDAMENTO
+        const respostaAgendamento = superInteligencia.detectarAgendamento(message);
+        if (respostaAgendamento) {
+            finalResponse = respostaAgendamento;
+            console.log("📅 Resposta de agendamento gerada");
+        }
+        // 🎯 PROCESSAR CONFIRMAÇÃO DE AGENDAMENTO
+        else if (superInteligencia.processarAgendamento(message)) {
+            finalResponse = superInteligencia.processarAgendamento(message);
+            console.log("✅ Confirmação de agendamento processada");
+        }
         // 🎯 USAR SISTEMA INTELIGENTE SE INTENÇÕES FORAM DETECTADAS
-        if (Object.values(inteligencias).some(val => val === true)) {
+        else if (Object.values(inteligencias).some(val => val === true)) {
             const contatos = processedPageData?.contatos || {};
-            finalResponse = sistemaInteligencias.gerarRespostaContextual(
+            
+            // Gerar resposta base com empatia
+            const respostaEmpatica = superInteligencia.gerarRespostaEmpatica(
+                message, 
+                analiseEmocional, 
+                personalidade, 
+                contatos
+            );
+            
+            // Combinar com resposta contextual
+            const respostaContextual = sistemaInteligencias.gerarRespostaContextual(
                 inteligencias, 
                 contatos, 
                 journeyStage
             );
-            console.log(`🎯 [CHAT-INTELIGENTE] Resposta contextual gerada: ${finalResponse.length} caracteres`);
+            
+            finalResponse = respostaEmpatica + respostaContextual;
+            console.log(`🎭 Resposta emocional inteligente gerada`);
         } else {
-            // 🎯 USAR SISTEMA ORIGINAL SE NENHUMA INTENÇÃO ESPECÍFICA
-            finalResponse = await generateAIResponse(message, processedPageData || {}, [], instructions, leadId);
-            console.log(`🤖 [CHAT-INTELIGENTE] Resposta IA gerada: ${finalResponse.length} caracteres`);
+            // 🎯 USAR SISTEMA ORIGINAL COM MELHORIAS EMOCIONAIS
+            const respostaIA = await generateAIResponse(message, processedPageData || {}, [], instructions, leadId);
+            
+            // Aplicar melhorias emocionais na resposta
+            if (analiseEmocional.emocao === "negativo" && analiseEmocional.intensidade >= 2) {
+                finalResponse = `🤗 **Entendo que isso é importante para você.** ` + respostaIA;
+            } else if (analiseEmocional.urgencia) {
+                finalResponse = `🚨 **Priorizando sua solicitação!** ` + respostaIA;
+            } else {
+                finalResponse = respostaIA;
+            }
+            
+            console.log(`🤖 Resposta IA com melhorias emocionais`);
         }
 
         // 🎯 ATUALIZAR RESPOSTA NO LEAD SE EXISTIR
@@ -2476,6 +2856,8 @@ app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
             success: true,
             response: finalResponse,
             inteligenciasDetectadas: inteligencias,
+            analiseEmocional: analiseEmocional,
+            personalidadeSelecionada: personalidade,
             journeyStage: journeyStage,
             bonuses_detected: processedPageData?.bonuses_detected || [],
             contatos: processedPageData?.contatos || {},
@@ -2483,13 +2865,13 @@ app.post("/api/process-chat-inteligente", requireApiKey, async (req, res) => {
                 hasPageData: !!processedPageData,
                 contentLength: processedPageData?.cleanText?.length || 0,
                 method: processedPageData?.method || "none",
-                sistema: "chat-inteligente"
+                sistema: "super-inteligencia-v1"
             }
         });
 
     } catch (error) {
         analytics.errors++;
-        logger.error("Chat inteligente endpoint error:", error.message || error);
+        logger.error("Super inteligencia endpoint error:", error.message || error);
         return res.status(500).json({ 
             success: false, 
             error: "Erro interno ao gerar resposta inteligente: " + (error.message || "Erro desconhecido"),
@@ -2611,24 +2993,229 @@ app.post("/api/extract", async (req, res) => {
     }
 });
 
+// ===== FUNÇÃO: Geração Completa do HTML do Chatbot =====
+function generateFullChatbotHTML(pageData = {}, robotName = 'Assistente IA', customInstructions = '') {
+    const escapedPageData = JSON.stringify(pageData || {});
+    const safeRobotName = String(robotName || 'Assistente IA').replace(/"/g, '\\"');
+    const safeInstructions = String(customInstructions || '').replace(/"/g, '\\"');
+    
+    // Gerar botões fixos com contatos
+    const contatos = pageData.contatos || {
+        telefone: [],
+        whatsapp: [], 
+        email: [],
+        site: [pageData.url || ''],
+        endereco: []
+    };
+    
+    const botoesFixos = gerarBotoesFixos(contatos, safeRobotName);
+
+    return `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LinkMágico Chatbot - ${safeRobotName}</title>
+<meta name="description" content="Chatbot IA - ${safeRobotName}"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.chat-container{width:100%;max-width:800px;height:90vh;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.15);display:flex;flex-direction:column;overflow:hidden}
+.chat-header{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;padding:20px;text-align:center;position:relative}
+.chat-header h1{font-size:1.5rem;font-weight:600}
+.chat-header .subtitle{font-size:0.9rem;opacity:0.9;margin-top:5px}
+.chat-messages{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;background:#f8fafc}
+.chat-message{max-width:70%;padding:15px;border-radius:15px;font-size:0.95rem;line-height:1.4}
+.chat-message.user{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;align-self:flex-end;border-bottom-right-radius:5px}
+.chat-message.bot{background:#f1f5f9;color:#334155;align-self:flex-start;border-bottom-left-radius:5px}
+.chat-input-container{padding:20px;background:white;border-top:1px solid#e2e8f0;display:flex;gap:10px}
+.chat-input{flex:1;border:1px solid#e2e8f0;border-radius:25px;padding:12px 20px;font-size:0.95rem;outline:none;transition:all 0.3s}
+.chat-input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+.send-button{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);border:none;border-radius:50%;width:50px;height:50px;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s}
+.send-button:hover{transform:scale(1.05);box-shadow:0 5px 15px rgba(59,130,246,0.4)}
+.send-button:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.typing-indicator{display:none;align-items:center;gap:5px;color:#64748b;font-size:0.9rem;margin-top:10px}
+.typing-dot{width:8px;height:8px;background:#64748b;border-radius:50%;animation:typing 1.4s infinite}
+.typing-dot:nth-child(2){animation-delay:0.2s}
+.typing-dot:nth-child(3){animation-delay:0.4s}
+@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.lead-form{background:white;padding:25px;margin:20px;border-radius:15px;box-shadow:0 8px 25px rgba(0,0,0,0.1);text-align:center}
+.lead-form h3{color:#1e40af;margin-bottom:10px}
+.lead-form p{color:#64748b;margin-bottom:20px}
+.lead-form input{width:100%;padding:15px;margin-bottom:15px;border:2px solid#e2e8f0;border-radius:10px;font-size:1rem;transition:all 0.3s}
+.lead-form input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+.lead-form button{width:100%;background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;border:none;padding:15px;border-radius:10px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s}
+.lead-form button:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(59,130,246,0.3)}
+.contact-buttons{display:flex;gap:10px;margin-top:15px;flex-wrap:wrap}
+.contact-button{flex:1;min-width:120px;background:#f1f5f9;border:1px solid#e2e8f0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.3s;text-decoration:none;color:#334155;font-size:0.9rem;display:flex;align-items:center;justify-content:center;gap:5px}
+.contact-button:hover{background:#3b82f6;color:white;transform:translateY(-2px)}
+.lm-botoes-fixos a, .lm-botoes-fixos button { font-size: 0.85rem; }
+@media (max-width:768px){.chat-container{height:100vh;border-radius:0}.chat-message{max-width:85%}.lead-form{margin:10px;padding:20px}.contact-button{min-width:100px;font-size:0.8rem}.lm-botoes-fixos{padding:10px !important}.lm-botoes-fixos a, .lm-botoes-fixos button{padding:10px 15px !important;font-size:0.8rem !important}}
+</style>
+</head>
+<body>
+<div class="chat-container">
+<div class="chat-header">
+<h1>${safeRobotName}</h1>
+<div class="subtitle">Estou aqui para tirar todas as suas dúvidas</div>
+</div>
+
+${botoesFixos}
+
+<div class="lead-form" id="leadForm">
+<h3>🎯 Vamos começar!</h3>
+<p>Deixe seus dados para uma experiência personalizada</p>
+<input type="text" id="leadName" placeholder="Seu nome completo">
+<input type="email" id="leadEmail" placeholder="Seu melhor email" required>
+<input type="tel" id="leadPhone" placeholder="Seu WhatsApp (opcional)">
+<button id="startChat"><i class="fas fa-comments" style="margin-right:8px"></i> Iniciar Conversa</button>
+</div>
+
+<div class="chat-messages" id="chatMessages" style="display:none">
+<div class="chat-message bot">Olá! Sou ${safeRobotName}, estou aqui para tirar todas as suas dúvidas. Como posso ajudar você hoje?</div>
+</div>
+
+<div class="chat-input-container" id="chatInputContainer" style="display:none">
+<input type="text" class="chat-input" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
+<button class="send-button" id="sendButton"><i class="fas fa-paper-plane"></i></button>
+</div>
+
+<div class="typing-indicator" id="typingIndicator">
+<span>Digitando</span>
+<div class="typing-dot"></div>
+<div class="typing-dot"></div>
+<div class="typing-dot"></div>
+</div>
+</div>
+
+<script>
+const pageData = ${escapedPageData};
+const robotName = "${safeRobotName}";
+const customInstructions = "${safeInstructions}";
+
+const chatMessages = document.getElementById('chatMessages');
+const messageInput = document.getElementById('messageInput');
+const sendButton = document.getElementById('sendButton');
+const typingIndicator = document.getElementById('typingIndicator');
+const leadForm = document.getElementById('leadForm');
+const chatInputContainer = document.getElementById('chatInputContainer');
+const startChatBtn = document.getElementById('startChat');
+
+let leadId = null;
+let agendamentoAtivo = false;
+
+// Função para iniciar agendamento
+function iniciarAgendamento() {
+    const mensagem = "Gostaria de agendar uma reunião";
+    messageInput.value = mensagem;
+    sendMessage();
+}
+
+// Capturar lead
+startChatBtn.addEventListener('click', async function() {
+    const name = document.getElementById('leadName').value.trim();
+    const email = document.getElementById('leadEmail').value.trim();
+    const phone = document.getElementById('leadPhone').value.trim();
+
+    if (!email) {
+        alert('Por favor, informe seu email');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/capture-lead', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                nome: name || 'Não informado',
+                email: email,
+                telefone: phone || 'Não informado',
+                url_origem: window.location.href,
+                robotName: robotName
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            leadId = data.lead.id;
+            leadForm.style.display = 'none';
+            chatMessages.style.display = 'flex';
+            chatInputContainer.style.display = 'flex';
+            
+            addMessage(\`Olá \${name || 'amigo'}! É um prazer ter você aqui. Como posso ajudar você hoje?\`, false);
+            messageInput.focus();
+        }
+    } catch (error) {
+        console.error('Erro ao capturar lead:', error);
+        alert('Erro ao processar. Tente novamente.');
+    }
+});
+
+function addMessage(text, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = \`chat-message \${isUser ? 'user' : 'bot'}\`;
+    messageDiv.textContent = text;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendMessage() {
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+    addMessage(message, true);
+    messageInput.value = '';
+    sendButton.disabled = true;
+    typingIndicator.style.display = 'flex';
+
+    try {
+        const response = await fetch('/api/process-chat-inteligente', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: message,
+                pageData: pageData,
+                robotName: robotName,
+                instructions: customInstructions,
+                conversationId: 'chatbot_' + Date.now(),
+                leadId: leadId
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            addMessage(data.response, false);
+        } else {
+            addMessage('Desculpe, ocorreu um erro. Tente novamente.', false);
+        }
+    } catch (error) {
+        addMessage('Erro de conexão. Verifique sua internet.', false);
+    } finally {
+        typingIndicator.style.display = 'none';
+        sendButton.disabled = false;
+        messageInput.focus();
+    }
+}
+
+sendButton.addEventListener('click', sendMessage);
+messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+// Auto-focus no primeiro campo do formulário
+document.getElementById('leadName').focus();
+</script>
+</body>
+</html>`;
+}
+
 // Widget JS atualizado
 app.get("/public/widget.js", (req, res) => {
     res.set("Content-Type", "application/javascript");
-    res.send(`// LinkMágico Widget v7.0 - Com Captura de Leads\n(function() {\n    'use strict';\n    if (window.LinkMagicoWidget) return;\n    \n    var LinkMagicoWidget = {\n        config: {\n            position: 'bottom-right',\n            primaryColor: '#3b82f6',\n            robotName: 'Assistente IA',\n            salesUrl: '',\n            instructions: '',\n            apiBase: window.location.origin,
-            apiKey: this.getApiKeyFromQuery("apiKey") || this.getStoredApiKey(),\n            captureLeads: true\n        },\n        \n        getApiKeyFromQuery: function(name) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(name);
-        },
-
-        getStoredApiKey: function() {
-            return localStorage.getItem("lm_api_key");
-        },
-
-        storeApiKey: function(apiKey) {
-            localStorage.setItem("lm_api_key", apiKey);
-        },
-
-        init: function(userConfig) {\n            this.config = Object.assign(this.config, userConfig || {});\n            if (document.readyState === 'loading') {\n                document.addEventListener('DOMContentLoaded', this.createWidget.bind(this));\n            } else {\n                this.createWidget();\n            }\n        },\n        \n        createWidget: function() {\n            var container = document.createElement('div');\n            container.id = 'linkmagico-widget';\n            container.innerHTML = this.getHTML();\n            this.addStyles();\n            document.body.appendChild(container);\n            this.bindEvents();\n            \n            this.leadId = this.getStoredLeadId();\n        },\n        \n        getHTML: function() {\n            return '<div class="lm-button" id="lm-button"><i class="fas fa-comments"></i></div>' +\n                   '<div class="lm-chat" id="lm-chat" style="display:none;">' +\n                   '<div class="lm-header"><span>' + this.config.robotName + '</span><button id="lm-close">×</button></div>' +\n                   '<div class="lm-messages" id="lm-messages">' +\n                   '<div class="lm-msg lm-bot">Olá! Sou ' + this.config.robotName + ', estou aqui para tirar todas as suas dúvidas. Como posso ajudar você hoje?</div></div>' +\n                   '<div class="lm-lead-form" id="lm-lead-form" style="display:none;">' +\n                   '<div class="lm-form-title">Antes de começarmos...</div>' +\n                   '<input type="text" id="lm-lead-name" placeholder="Seu nome" class="lm-form-input">' +\n                   '<input type="email" id="lm-lead-email" placeholder="Seu melhor email" class="lm-form-input" required>' +\n                   '<input type="tel" id="lm-lead-phone" placeholder="Seu WhatsApp" class="lm-form-input">' +\n                   '<button id="lm-lead-submit" class="lm-form-submit">Começar Conversa</button>' +\n                   '</div>' +\n                   '<div class="lm-input"><input id="lm-input" placeholder="Digite..."><button id="lm-send">➤</button></div></div>';\n        },\n        \n        addStyles: function() {\n            if (document.getElementById('lm-styles')) return;\n            var css = '#linkmagico-widget{position:fixed;right:20px;bottom:20px;z-index:999999;font-family:sans-serif}' +\n                     '.lm-button{width:60px;height:60px;background:' + this.config.primaryColor + ';border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:1.8em;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,0.2);transition:all 0.3s ease}' +\n                     '.lm-button:hover{transform:scale(1.1)}' +\n                     '.lm-chat{position:fixed;right:20px;bottom:90px;width:350px;height:500px;background:white;border-radius:10px;box-shadow:0 8px 16px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden}' +\n                     '.lm-header{background:' + this.config.primaryColor + ';color:white;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:bold}' +\n                     '.lm-header button{background:none;border:none;color:white;font-size:1.2em;cursor:pointer}' +\n                     '.lm-messages{flex:1;padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}' +\n                     '.lm-msg{padding:8px 12px;border-radius:15px;max-width:80%}' +\n                     '.lm-bot{background:#e0e0e0;align-self:flex-start}' +\n                     '.lm-user{background:' + this.config.primaryColor + ';color:white;align-self:flex-end}' +\n                     '.lm-input{display:flex;padding:10px;border-top:1px solid #eee}' +\n                     '.lm-input input{flex:1;border:1px solid #ddd;border-radius:20px;padding:8px 12px;outline:none}' +\n                     '.lm-input button{background:' + this.config.primaryColor + ';border:none;color:white;border-radius:50%;width:35px;height:35px;margin-left:10px;cursor:pointer}' +\n                     '.lm-lead-form{padding:15px;border-bottom:1px solid #eee}' +\n                     '.lm-form-title{font-weight:bold;margin-bottom:10px;color:#333}' +\n                     '.lm-form-input{width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:5px;font-size:0.9em}' +\n                     '.lm-form-submit{width:100%;background:' + this.config.primaryColor + ';color:white;border:none;padding:10px;border-radius:5px;cursor:pointer}' +\n                     '@media (max-width: 480px){.lm-chat{width:90%;height:80%;right:5%;bottom:5%}}';\n            var styleSheet = document.createElement('style');\n            styleSheet.id = 'lm-styles';\n            styleSheet.type = 'text/css';\n            styleSheet.innerText = css;\n            document.head.appendChild(styleSheet);\n        },\n        \n        bindEvents: function() {\n            var button = document.getElementById('lm-button');\n            var chat = document.getElementById('lm-chat');\n            var close = document.getElementById('lm-close');\n            var send = document.getElementById('lm-send');\n            var input = document.getElementById('lm-input');\n            var messages = document.getElementById('lm-messages');\n            var leadForm = document.getElementById('lm-lead-form');\n            var leadSubmit = document.getElementById('lm-lead-submit');\n\n            button.addEventListener('click', function() {\n                chat.style.display = chat.style.display === 'none' ? 'flex' : 'none';\n                if (this.config.captureLeads && !this.leadId) {\n                    leadForm.style.display = 'block';\n                    input.style.display = 'none';\n                    send.style.display = 'none';\n                }\n            }.bind(this));\n\n            close.addEventListener('click', function() {\n                chat.style.display = 'none';\n            });\n\n            leadSubmit.addEventListener('click', this.captureLead.bind(this));\n\n            send.addEventListener('click', this.sendMessage.bind(this));\n            input.addEventListener('keypress', function(e) {\n                if (e.key === 'Enter') {\n                    this.sendMessage();\n                }\n            }.bind(this));\n        },\n\n        captureLead: async function() {\n            var name = document.getElementById('lm-lead-name').value.trim();\n            var email = document.getElementById('lm-lead-email').value.trim();\n            var phone = document.getElementById('lm-lead-phone').value.trim();\n\n            if (!email) {\n                alert('Por favor, informe seu email');\n                return;\n            }\n\n            try {\n                const response = await fetch(this.config.apiBase + '/api/capture-lead', {\n                    method: 'POST',\n                    headers: {\n                        'Content-Type': 'application/json',\n                        'X-API-Key': this.config.apiKey\n                    },\n                    body: JSON.stringify({\n                        nome: name || 'Não informado',\n                        email: email,\n                        telefone: phone || 'Não informado',\n                        url_origem: window.location.href,\n                        robotName: this.config.robotName\n                    })\n                });\n\n                const data = await response.json();\n\n                if (data.success) {\n                    this.leadId = data.lead.id;\n                    this.storeLeadId(this.leadId);\n                    \n                    document.getElementById('lm-lead-form').style.display = 'none';\n                    document.getElementById('lm-input').style.display = 'block';\n                    document.getElementById('lm-send').style.display = 'block';\n                    \n                    var welcomeMsg = document.createElement('div');\n                    welcomeMsg.className = 'lm-msg lm-bot';\n                    welcomeMsg.textContent = 'Obrigado, ' + (name || 'amigo') + '! Como posso ajudar você hoje?';\n                    document.getElementById('lm-messages').appendChild(welcomeMsg);\n                }\n            } catch (error) {\n                console.error('Erro ao capturar lead:', error);\n                alert('Erro ao processar. Tente novamente.');\n            }\n        },\n\n        getStoredLeadId: function() {\n            return localStorage.getItem('lm_lead_id');\n        },\n\n        storeLeadId: function(leadId) {\n            localStorage.setItem('lm_lead_id', leadId);\n        },\n\n        sendMessage: async function() {\n            var input = document.getElementById('lm-input');\n            var messages = document.getElementById('lm-messages');\n            var message = input.value.trim();\n            if (!message) return;\n\n            var userMsg = document.createElement('div');\n            userMsg.className = 'lm-msg lm-user';\n            userMsg.textContent = message;\n            messages.appendChild(userMsg);\n            input.value = '';\n            messages.scrollTop = messages.scrollHeight;\n\n            try {\n                const response = await fetch(this.config.apiBase + '/api/chat-universal', {\n                    method: 'POST',\n                    headers: {\n                        'Content-Type': 'application/json',\n                        'X-API-Key': this.config.apiKey\n                    },\n                    body: JSON.stringify({\n                        message: message,\n                        url: this.config.salesUrl,\n                        instructions: this.config.instructions,\n                        robotName: this.config.robotName,\n                        conversationId: this.config.conversationId,\n                        leadId: this.leadId\n                    })\n                });\n                const data = await response.json();\n\n                var botMsg = document.createElement('div');\n                botMsg.className = 'lm-msg lm-bot';\n                botMsg.textContent = data.response || 'Desculpe, ocorreu um erro.';\n                messages.appendChild(botMsg);\n                messages.scrollTop = messages.scrollHeight;\n\n            } catch (error) {\n                console.error('Widget chat error:', error);\n                var errorMsg = document.createElement('div');\n                errorMsg.className = 'lm-msg lm-bot';\n                errorMsg.textContent = 'Erro de conexão. Tente novamente.';\n                messages.appendChild(errorMsg);\n                messages.scrollTop = messages.scrollHeight;\n            }\n        }\n    };\n\n    window.LinkMagicoWidget = LinkMagicoWidget;\n    if (window.LinkMagicoWidgetConfig) {\n        window.LinkMagicoWidget.init(window.LinkMagicoWidgetConfig);\n    }\n})();\n`);
+    res.send(`// LinkMágico Widget v7.0 - Com Captura de Leads\n(function() {\n    'use strict';\n    if (window.LinkMagicoWidget) return;\n    \n    var LinkMagicoWidget = {\n        config: {\n            position: 'bottom-right',\n            primaryColor: '#3b82f6',\n            robotName: 'Assistente IA',\n            salesUrl: '',\n            instructions: '',\n            apiBase: window.location.origin,\n            captureLeads: true\n        },\n        \n        getApiKeyFromQuery: function(name) {\n            const urlParams = new URLSearchParams(window.location.search);\n            return urlParams.get(name);\n        },\n\n        getStoredApiKey: function() {\n            return localStorage.getItem("lm_api_key");\n        },\n\n        storeApiKey: function(apiKey) {\n            localStorage.setItem("lm_api_key", apiKey);\n        },\n\n        init: function(userConfig) {\n            this.config = Object.assign(this.config, userConfig || {});\n            if (document.readyState === 'loading') {\n                document.addEventListener('DOMContentLoaded', this.createWidget.bind(this));\n            } else {\n                this.createWidget();\n            }\n        },\n        \n        createWidget: function() {\n            var container = document.createElement('div');\n            container.id = 'linkmagico-widget';\n            container.innerHTML = this.getHTML();\n            this.addStyles();\n            document.body.appendChild(container);\n            this.bindEvents();\n            \n            this.leadId = this.getStoredLeadId();\n        },\n        \n        getHTML: function() {\n            return '<div class="lm-button" id="lm-button"><i class="fas fa-comments"></i></div>' +\n                   '<div class="lm-chat" id="lm-chat" style="display:none;">' +\n                   '<div class="lm-header"><span>' + this.config.robotName + '</span><button id="lm-close">×</button></div>' +\n                   '<div class="lm-messages" id="lm-messages">' +\n                   '<div class="lm-msg lm-bot">Olá! Sou ' + this.config.robotName + ', estou aqui para tirar todas as suas dúvidas. Como posso ajudar você hoje?</div></div>' +\n                   '<div class="lm-lead-form" id="lm-lead-form" style="display:none;">' +\n                   '<div class="lm-form-title">Antes de começarmos...</div>' +\n                   '<input type="text" id="lm-lead-name" placeholder="Seu nome" class="lm-form-input">' +\n                   '<input type="email" id="lm-lead-email" placeholder="Seu melhor email" class="lm-form-input" required>' +\n                   '<input type="tel" id="lm-lead-phone" placeholder="Seu WhatsApp" class="lm-form-input">' +\n                   '<button id="lm-lead-submit" class="lm-form-submit">Começar Conversa</button>' +\n                   '</div>' +\n                   '<div class="lm-input"><input id="lm-input" placeholder="Digite..."><button id="lm-send">➤</button></div></div>';\n        },\n        \n        addStyles: function() {\n            if (document.getElementById('lm-styles')) return;\n            var css = '#linkmagico-widget{position:fixed;right:20px;bottom:20px;z-index:999999;font-family:sans-serif}' +\n                     '.lm-button{width:60px;height:60px;background:' + this.config.primaryColor + ';border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:1.8em;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,0.2);transition:all 0.3s ease}' +\n                     '.lm-button:hover{transform:scale(1.1)}' +\n                     '.lm-chat{position:fixed;right:20px;bottom:90px;width:350px;height:500px;background:white;border-radius:10px;box-shadow:0 8px 16px rgba(0,0,0,0.2);display:flex;flex-direction:column;overflow:hidden}' +\n                     '.lm-header{background:' + this.config.primaryColor + ';color:white;padding:10px;display:flex;justify-content:space-between;align-items:center;font-weight:bold}' +\n                     '.lm-header button{background:none;border:none;color:white;font-size:1.2em;cursor:pointer}' +\n                     '.lm-messages{flex:1;padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}' +\n                     '.lm-msg{padding:8px 12px;border-radius:15px;max-width:80%}' +\n                     '.lm-bot{background:#e0e0e0;align-self:flex-start}' +\n                     '.lm-user{background:' + this.config.primaryColor + ';color:white;align-self:flex-end}' +\n                     '.lm-input{display:flex;padding:10px;border-top:1px solid #eee}' +\n                     '.lm-input input{flex:1;border:1px solid #ddd;border-radius:20px;padding:8px 12px;outline:none}' +\n                     '.lm-input button{background:' + this.config.primaryColor + ';border:none;color:white;border-radius:50%;width:35px;height:35px;margin-left:10px;cursor:pointer}' +\n                     '.lm-lead-form{padding:15px;border-bottom:1px solid #eee}' +\n                     '.lm-form-title{font-weight:bold;margin-bottom:10px;color:#333}' +\n                     '.lm-form-input{width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:5px;font-size:0.9em}' +\n                     '.lm-form-submit{width:100%;background:' + this.config.primaryColor + ';color:white;border:none;padding:10px;border-radius:5px;cursor:pointer}' +\n                     '@media (max-width: 480px){.lm-chat{width:90%;height:80%;right:5%;bottom:5%}}';\n            var styleSheet = document.createElement('style');\n            styleSheet.id = 'lm-styles';\n            styleSheet.type = 'text/css';\n            styleSheet.innerText = css;\n            document.head.appendChild(styleSheet);\n        },\n        \n        bindEvents: function() {\n            var button = document.getElementById('lm-button');\n            var chat = document.getElementById('lm-chat');\n            var close = document.getElementById('lm-close');\n            var send = document.getElementById('lm-send');\n            var input = document.getElementById('lm-input');\n            var messages = document.getElementById('lm-messages');\n            var leadForm = document.getElementById('lm-lead-form');\n            var leadSubmit = document.getElementById('lm-lead-submit');\n\n            button.addEventListener('click', function() {\n                chat.style.display = chat.style.display === 'none' ? 'flex' : 'none';\n                if (this.config.captureLeads && !this.leadId) {\n                    leadForm.style.display = 'block';\n                    input.style.display = 'none';\n                    send.style.display = 'none';\n                }\n            }.bind(this));\n\n            close.addEventListener('click', function() {\n                chat.style.display = 'none';\n            });\n\n            leadSubmit.addEventListener('click', this.captureLead.bind(this));\n\n            send.addEventListener('click', this.sendMessage.bind(this));\n            input.addEventListener('keypress', function(e) {\n                if (e.key === 'Enter') {\n                    this.sendMessage();\n                }\n            }.bind(this));\n        },\n\n        captureLead: async function() {\n            var name = document.getElementById('lm-lead-name').value.trim();\n            var email = document.getElementById('lm-lead-email').value.trim();\n            var phone = document.getElementById('lm-lead-phone').value.trim();\n\n            if (!email) {\n                alert('Por favor, informe seu email');\n                return;\n            }\n\n            try {\n                const response = await fetch(this.config.apiBase + '/api/capture-lead', {\n                    method: 'POST',\n                    headers: {\n                        'Content-Type': 'application/json',\n                        'X-API-Key': this.config.apiKey\n                    },\n                    body: JSON.stringify({\n                        nome: name || 'Não informado',\n                        email: email,\n                        telefone: phone || 'Não informado',\n                        url_origem: window.location.href,\n                        robotName: this.config.robotName\n                    })\n                });\n\n                const data = await response.json();\n\n                if (data.success) {\n                    this.leadId = data.lead.id;\n                    this.storeLeadId(this.leadId);\n                    \n                    document.getElementById('lm-lead-form').style.display = 'none';\n                    document.getElementById('lm-input').style.display = 'block';\n                    document.getElementById('lm-send').style.display = 'block';\n                    \n                    var welcomeMsg = document.createElement('div');\n                    welcomeMsg.className = 'lm-msg lm-bot';\n                    welcomeMsg.textContent = 'Obrigado, ' + (name || 'amigo') + '! Como posso ajudar você hoje?';\n                    document.getElementById('lm-messages').appendChild(welcomeMsg);\n                }\n            } catch (error) {\n                console.error('Erro ao capturar lead:', error);\n                alert('Erro ao processar. Tente novamente.');\n            }\n        },\n\n        getStoredLeadId: function() {\n            return localStorage.getItem('lm_lead_id');\n        },\n\n        storeLeadId: function(leadId) {\n            localStorage.setItem('lm_lead_id', leadId);\n        },\n\n        sendMessage: async function() {\n            var input = document.getElementById('lm-input');\n            var messages = document.getElementById('lm-messages');\n            var message = input.value.trim();\n            if (!message) return;\n\n            var userMsg = document.createElement('div');\n            userMsg.className = 'lm-msg lm-user';\n            userMsg.textContent = message;\n            messages.appendChild(userMsg);\n            input.value = '';\n            messages.scrollTop = messages.scrollHeight;\n\n            try {\n                const response = await fetch(this.config.apiBase + '/api/chat-universal', {\n                    method: 'POST',\n                    headers: {\n                        'Content-Type': 'application/json',\n                        'X-API-Key': this.config.apiKey\n                    },\n                    body: JSON.stringify({\n                        message: message,\n                        url: this.config.salesUrl,\n                        instructions: this.config.instructions,\n                        robotName: this.config.robotName,\n                        conversationId: this.config.conversationId,\n                        leadId: this.leadId\n                    })\n                });\n                const data = await response.json();\n\n                var botMsg = document.createElement('div');\n                botMsg.className = 'lm-msg lm-bot';\n                botMsg.textContent = data.response || 'Desculpe, ocorreu um erro.';\n                messages.appendChild(botMsg);\n                messages.scrollTop = messages.scrollHeight;\n\n            } catch (error) {\n                console.error('Widget chat error:', error);\n                var errorMsg = document.createElement('div');\n                errorMsg.className = 'lm-msg lm-bot';\n                errorMsg.textContent = 'Erro de conexão. Tente novamente.';\n                messages.appendChild(errorMsg);\n                messages.scrollTop = messages.scrollHeight;\n            }\n        }\n    };\n\n    window.LinkMagicoWidget = LinkMagicoWidget;\n    if (window.LinkMagicoWidgetConfig) {\n        window.LinkMagicoWidget.init(window.LinkMagicoWidgetConfig);\n    }\n})();\n`);
 });
 
 function generateChatbotHTML({ robotName, url, instructions }) {
@@ -2827,13 +3414,6 @@ async function sendMessage() {
         
         if (data.success) {
             addMessage(data.response);
-            
-            // Adicionar botões de contato se disponíveis
-            if (data.contatos && Object.keys(data.contatos).length > 0) {
-                setTimeout(() => {
-                    addContactButtons(data.contatos);
-                }, 500);
-            }
         } else {
             addMessage('Desculpe, ocorreu um erro. Tente novamente em alguns minutos.');
         }
@@ -2843,44 +3423,6 @@ async function sendMessage() {
     } finally {
         sendButton.disabled = false;
         chatInput.focus();
-    }
-}
-
-function addContactButtons(contatos) {
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.className = 'contact-buttons';
-    buttonsDiv.style.marginTop = '10px';
-    
-    if (contatos.telefone && contatos.telefone.length > 0) {
-        const telBtn = document.createElement('a');
-        telBtn.className = 'contact-button';
-        telBtn.innerHTML = '<i class="fas fa-phone"></i> Ligar';
-        telBtn.href = \`tel:\${contatos.telefone[0].replace(/\\D/g, '')}\`;
-        telBtn.target = '_blank';
-        buttonsDiv.appendChild(telBtn);
-    }
-    
-    if (contatos.whatsapp && contatos.whatsapp.length > 0) {
-        const whatsBtn = document.createElement('a');
-        whatsBtn.className = 'contact-button';
-        whatsBtn.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp';
-        whatsBtn.href = \`https://wa.me/\${contatos.whatsapp[0].replace(/\\D/g, '')}\`;
-        whatsBtn.target = '_blank';
-        buttonsDiv.appendChild(whatsBtn);
-    }
-    
-    if (contatos.site && contatos.site.length > 0) {
-        const siteBtn = document.createElement('a');
-        siteBtn.className = 'contact-button';
-        siteBtn.innerHTML = '<i class="fas fa-globe"></i> Site';
-        siteBtn.href = contatos.site[0];
-        siteBtn.target = '_blank';
-        buttonsDiv.appendChild(siteBtn);
-    }
-    
-    if (buttonsDiv.children.length > 0) {
-        chatMessages.appendChild(buttonsDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 }
 
@@ -2899,259 +3441,6 @@ document.getElementById('leadName').focus();
 </html>`;
 }
 
-// ===== FUNÇÃO: Geração Completa do HTML do Chatbot =====
-function generateFullChatbotHTML(pageData = {}, robotName = 'Assistente IA', customInstructions = '') {
-    const escapedPageData = JSON.stringify(pageData || {});
-    const safeRobotName = String(robotName || 'Assistente IA').replace(/"/g, '\\"');
-    const safeInstructions = String(customInstructions || '').replace(/"/g, '\\"');
-
-    return `<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>LinkMágico Chatbot - ${safeRobotName}</title>
-<meta name="description" content="Chatbot IA - ${safeRobotName}"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.chat-container{width:100%;max-width:800px;height:90vh;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.15);display:flex;flex-direction:column;overflow:hidden}
-.chat-header{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;padding:20px;text-align:center;position:relative}
-.chat-header h1{font-size:1.5rem;font-weight:600}
-.chat-header .subtitle{font-size:0.9rem;opacity:0.9;margin-top:5px}
-.chat-messages{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;background:#f8fafc}
-.chat-message{max-width:70%;padding:15px;border-radius:15px;font-size:0.95rem;line-height:1.4}
-.chat-message.user{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;align-self:flex-end;border-bottom-right-radius:5px}
-.chat-message.bot{background:#f1f5f9;color:#334155;align-self:flex-start;border-bottom-left-radius:5px}
-.chat-input-container{padding:20px;background:white;border-top:1px solid#e2e8f0;display:flex;gap:10px}
-.chat-input{flex:1;border:1px solid#e2e8f0;border-radius:25px;padding:12px 20px;font-size:0.95rem;outline:none;transition:all 0.3s}
-.chat-input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
-.send-button{background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);border:none;border-radius:50%;width:50px;height:50px;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s}
-.send-button:hover{transform:scale(1.05);box-shadow:0 5px 15px rgba(59,130,246,0.4)}
-.send-button:disabled{opacity:0.6;cursor:not-allowed;transform:none}
-.typing-indicator{display:none;align-items:center;gap:5px;color:#64748b;font-size:0.9rem;margin-top:10px}
-.typing-dot{width:8px;height:8px;background:#64748b;border-radius:50%;animation:typing 1.4s infinite}
-.typing-dot:nth-child(2){animation-delay:0.2s}
-.typing-dot:nth-child(3){animation-delay:0.4s}
-@keyframes typing{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-.lead-form{background:white;padding:25px;margin:20px;border-radius:15px;box-shadow:0 8px 25px rgba(0,0,0,0.1);text-align:center}
-.lead-form h3{color:#1e40af;margin-bottom:10px}
-.lead-form p{color:#64748b;margin-bottom:20px}
-.lead-form input{width:100%;padding:15px;margin-bottom:15px;border:2px solid#e2e8f0;border-radius:10px;font-size:1rem;transition:all 0.3s}
-.lead-form input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
-.lead-form button{width:100%;background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%);color:white;border:none;padding:15px;border-radius:10px;cursor:pointer;font-size:1.1rem;font-weight:600;transition:all 0.3s}
-.lead-form button:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(59,130,246,0.3)}
-.contact-buttons{display:flex;gap:10px;margin-top:15px;flex-wrap:wrap}
-.contact-button{flex:1;min-width:120px;background:#f1f5f9;border:1px solid#e2e8f0;border-radius:8px;padding:12px;text-align:center;cursor:pointer;transition:all 0.3s;text-decoration:none;color:#334155;font-size:0.9rem;display:flex;align-items:center;justify-content:center;gap:5px}
-.contact-button:hover{background:#3b82f6;color:white;transform:translateY(-2px)}
-@media (max-width:768px){.chat-container{height:100vh;border-radius:0}.chat-message{max-width:85%}.lead-form{margin:10px;padding:20px}.contact-button{min-width:100px;font-size:0.8rem}}
-</style>
-</head>
-<body>
-<div class="chat-container">
-<div class="chat-header">
-<h1>${safeRobotName}</h1>
-<div class="subtitle">Estou aqui para tirar todas as suas dúvidas</div>
-</div>
-
-<div class="lead-form" id="leadForm">
-<h3>🎯 Vamos começar!</h3>
-<p>Deixe seus dados para uma experiência personalizada</p>
-<input type="text" id="leadName" placeholder="Seu nome completo">
-<input type="email" id="leadEmail" placeholder="Seu melhor email" required>
-<input type="tel" id="leadPhone" placeholder="Seu WhatsApp (opcional)">
-<button id="startChat"><i class="fas fa-comments" style="margin-right:8px"></i> Iniciar Conversa</button>
-</div>
-
-<div class="chat-messages" id="chatMessages" style="display:none">
-<div class="chat-message bot">Olá! Sou ${safeRobotName}, estou aqui para tirar todas as suas dúvidas. Como posso ajudar você hoje?</div>
-</div>
-
-<div class="chat-input-container" id="chatInputContainer" style="display:none">
-<input type="text" class="chat-input" id="messageInput" placeholder="Digite sua mensagem..." autocomplete="off">
-<button class="send-button" id="sendButton"><i class="fas fa-paper-plane"></i></button>
-</div>
-
-<div class="typing-indicator" id="typingIndicator">
-<span>Digitando</span>
-<div class="typing-dot"></div>
-<div class="typing-dot"></div>
-<div class="typing-dot"></div>
-</div>
-</div>
-
-<script>
-const pageData = ${escapedPageData};
-const robotName = "${safeRobotName}";
-const customInstructions = "${safeInstructions}";
-
-const chatMessages = document.getElementById('chatMessages');
-const messageInput = document.getElementById('messageInput');
-const sendButton = document.getElementById('sendButton');
-const typingIndicator = document.getElementById('typingIndicator');
-const leadForm = document.getElementById('leadForm');
-const chatInputContainer = document.getElementById('chatInputContainer');
-const startChatBtn = document.getElementById('startChat');
-
-let leadId = null;
-
-// Capturar lead
-startChatBtn.addEventListener('click', async function() {
-    const name = document.getElementById('leadName').value.trim();
-    const email = document.getElementById('leadEmail').value.trim();
-    const phone = document.getElementById('leadPhone').value.trim();
-
-    if (!email) {
-        alert('Por favor, informe seu email');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/capture-lead', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                nome: name || 'Não informado',
-                email: email,
-                telefone: phone || 'Não informado',
-                url_origem: window.location.href,
-                robotName: robotName
-            })
-        });
-
-        const data = await response.json();
-        
-        if (data.success) {
-            leadId = data.lead.id;
-            leadForm.style.display = 'none';
-            chatMessages.style.display = 'flex';
-            chatInputContainer.style.display = 'flex';
-            
-            addMessage(\`Olá \${name || 'amigo'}! É um prazer ter você aqui. Como posso ajudar você hoje?\`, false);
-            messageInput.focus();
-        }
-    } catch (error) {
-        console.error('Erro ao capturar lead:', error);
-        alert('Erro ao processar. Tente novamente.');
-    }
-});
-
-function addMessage(text, isUser = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = \`chat-message \${isUser ? 'user' : 'bot'}\`;
-    messageDiv.textContent = text;
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function addContactButtons(contatos) {
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.className = 'contact-buttons';
-    
-    if (contatos.telefone && contatos.telefone.length > 0) {
-        const telBtn = document.createElement('a');
-        telBtn.className = 'contact-button';
-        telBtn.innerHTML = '<i class="fas fa-phone"></i> Ligar';
-        telBtn.href = \`tel:\${contatos.telefone[0].replace(/\\D/g, '')}\`;
-        telBtn.target = '_blank';
-        buttonsDiv.appendChild(telBtn);
-    }
-    
-    if (contatos.whatsapp && contatos.whatsapp.length > 0) {
-        const whatsBtn = document.createElement('a');
-        whatsBtn.className = 'contact-button';
-        whatsBtn.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp';
-        whatsBtn.href = \`https://wa.me/\${contatos.whatsapp[0].replace(/\\D/g, '')}\`;
-        whatsBtn.target = '_blank';
-        buttonsDiv.appendChild(whatsBtn);
-    }
-    
-    if (contatos.site && contatos.site.length > 0) {
-        const siteBtn = document.createElement('a');
-        siteBtn.className = 'contact-button';
-        siteBtn.innerHTML = '<i class="fas fa-globe"></i> Site';
-        siteBtn.href = contatos.site[0];
-        siteBtn.target = '_blank';
-        buttonsDiv.appendChild(siteBtn);
-    }
-    
-    if (contatos.email && contatos.email.length > 0) {
-        const emailBtn = document.createElement('a');
-        emailBtn.className = 'contact-button';
-        emailBtn.innerHTML = '<i class="fas fa-envelope"></i> Email';
-        emailBtn.href = \`mailto:\${contatos.email[0]}\`;
-        emailBtn.target = '_blank';
-        buttonsDiv.appendChild(emailBtn);
-    }
-    
-    if (buttonsDiv.children.length > 0) {
-        chatMessages.appendChild(buttonsDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-}
-
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    if (!message) return;
-
-    addMessage(message, true);
-    messageInput.value = '';
-    sendButton.disabled = true;
-    typingIndicator.style.display = 'flex';
-
-    try {
-        const response = await fetch('/api/chat-universal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message,
-                pageData: pageData,
-                robotName: robotName,
-                instructions: customInstructions,
-                conversationId: 'chatbot_' + Date.now(),
-                leadId: leadId
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            addMessage(data.response, false);
-            
-            // Adicionar botões de contato se disponíveis
-            if (data.contatos && Object.keys(data.contatos).length > 0) {
-                setTimeout(() => {
-                    addContactButtons(data.contatos);
-                }, 500);
-            }
-        } else {
-            addMessage('Desculpe, ocorreu um erro. Tente novamente.', false);
-        }
-    } catch (error) {
-        addMessage('Erro de conexão. Verifique sua internet.', false);
-    } finally {
-        typingIndicator.style.display = 'none';
-        sendButton.disabled = false;
-        messageInput.focus();
-    }
-}
-
-sendButton.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-});
-
-// Auto-focus no primeiro campo do formulário
-document.getElementById('leadName').focus();
-</script>
-</body>
-</html>`;
-}
-
-// ===== Server Initialization =====
-const PORT = process.env.PORT || 3000;
-
 // ===== CONFIGURAR NOVAS ROTAS =====
 setupRoutes(app);
 
@@ -3160,7 +3449,7 @@ setupRoutes(app);
     await initialize();
     
     // Iniciar servidor
-    
+    const PORT = process.env.PORT || 3000;
 
 // ===== ROTAS DAS NOVAS INTEGRAÇÕES V3.0 =====
 
@@ -3324,16 +3613,19 @@ app.listen(PORT, '0.0.0.0', () => {
         
         console.log(`🌐 Servidor rodando em http://0.0.0.0:${PORT}` );
         console.log(`📊 Dashboard: http://0.0.0.0:${PORT}/api/system/status` );
-        console.log(`🚀 LinkMágico v7.0 CORRIGIDO running on http://0.0.0.0:${PORT}` );
+        console.log(`🚀 LinkMágico v7.0 SUPERINTELIGENTE running on http://0.0.0.0:${PORT}` );
         console.log(`📊 Health check: http://0.0.0.0:${PORT}/health` );
         console.log(`🤖 Chatbot disponível em: http://0.0.0.0:${PORT}/chatbot` );
         console.log(`🔧 Widget JS disponível em: http://0.0.0.0:${PORT}/public/widget.js` );
         console.log(`🎯 Sistema de captura de leads PERSISTENTE ATIVADO`);
         console.log(`📈 Painel de leads: http://0.0.0.0:${PORT}/admin/leads` );
         console.log(`📞 Extração de contatos: ATIVADA`);
-        console.log(`🛡️  Proteção contra caracteres especiais: ATIVADA`);
+        console.log(`🧠 SUPERINTELIGÊNCIA EMOCIONAL: ATIVADA`);
+        console.log(`📅 Sistema de agendamento: ATIVADO`);
+        console.log(`🎯 Botões fixos no topo: IMPLEMENTADOS`);
         console.log(`👥 Jornada do cliente: Análise inteligente ATIVADA`);
-        console.log(`🧠 Sistema de captura de intenções: ATIVADO`);
+        console.log(`🎭 Personalidades adaptativas: CONSULTIVO, EMPÁTICO, TÉCNICO, MOTIVACIONAL`);
+        console.log(`🚨 Detecção de urgência: ATIVADA`);
         console.log(`🎯 Endpoint inteligente: /api/process-chat-inteligente`);
     });
 })();
