@@ -1,27 +1,14 @@
 {
-  "apiKeys": [
-    [
-      "lm_016ef0e7_cc39362db87632a7c5723c300f47370c",
-      {
-        "key": "lm_016ef0e7_cc39362db87632a7c5723c300f47370c",
-        "client": "Cliente Principal",
-        "plan": "pro",
-        "created": "2025-09-28T12:45:03.389Z",
-        "active": true,
-        "limits": {
-          "dailyRequests": 500,
-          "monthlyRequests": 10000,
-          "chatbotsPerDay": 25,
-          "extractionsPerDay": 100
-        },
-        "usage": {
-          "requests": 0,
-          "chatbots": 0,
-          "extractions": 0,
-          "lastUsed": null
-        }
-      }
-    ]
-  ],
-  "saved": "2025-09-28T12:45:03.398Z"
+  "demo-key-123": {
+    "nome": "Cliente Demo",
+    "plano": "basic",
+    "active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  },
+  "test-key-456": {
+    "nome": "Cliente Teste",
+    "plano": "premium",
+    "active": true,
+    "created_at": "2024-01-01T00:00:00Z"
+  }
 }

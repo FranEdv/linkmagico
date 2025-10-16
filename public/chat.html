@@ -1038,7 +1038,7 @@
             showTyping();
             
             try {
-                const response = await fetch('/chat-universal', {
+                const response = await fetch('/api/chat-universal', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
